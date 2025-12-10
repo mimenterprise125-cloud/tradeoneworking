@@ -910,8 +910,8 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                   <span className="text-rose-500 font-bold">*</span>
                   {errors.symbol && <span className="text-rose-400 text-xs ml-auto flex items-center gap-1">⚠️ Required</span>}
                 </div>
-                <div className="flex gap-2 items-start">
-                  <div className="flex-1 flex flex-col space-y-2">
+                <div className="flex gap-2 items-start flex-col sm:flex-row">
+                  <div className="flex-1 flex flex-col space-y-2 w-full sm:w-auto">
                     <div className="relative">
                       <input
                         type="text"
@@ -996,7 +996,7 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                     <Button 
                       type="button" 
                       size="sm" 
-                      className="h-10 bg-accent hover:bg-accent/90 text-white font-medium mt-0 flex-shrink-0"
+                      className="h-10 bg-accent hover:bg-accent/90 text-white font-medium mt-0 sm:mt-0 flex-shrink-0 w-full sm:w-auto"
                       onClick={() => {
                         const trimmed = symbolSearchInput.trim().toUpperCase();
                         if (trimmed && trimmed.length > 0) {
