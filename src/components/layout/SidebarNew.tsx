@@ -62,19 +62,6 @@ export const Sidebar = ({ onNavigate, collapsed = false, onToggle, viewMode = 'p
             <BrandLogo size={28} />
             <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent brand-font">TradeOne</span>
           </Link>
-          {onToggle && !collapsed && (
-            <div style={{ position: "absolute", right: 12, top: 15 }}>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={onToggle} 
-                aria-label="Toggle sidebar" 
-                className="shadow-sm hover:bg-accent/10 transition-colors"
-              >
-                <PanelLeft className={cn("w-5 h-5 transition-transform duration-200", collapsed && "rotate-180")} />
-              </Button>
-            </div>
-          )}
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
@@ -134,8 +121,14 @@ export const Sidebar = ({ onNavigate, collapsed = false, onToggle, viewMode = 'p
       </div>
 
       {onToggle && collapsed && (
-        <div style={{ position: 'fixed', left: 8, top: 20, zIndex: 70 }}>
-          <Button variant="ghost" size="icon" onClick={onToggle} aria-label="Toggle sidebar" className="shadow-sm bg-background/80">
+        <div className="fixed left-4 top-4 z-50">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onToggle} 
+            aria-label="Toggle sidebar" 
+            className="h-10 w-10 shadow-md bg-background/90 backdrop-blur-sm hover:bg-accent/10 hover:text-accent transition-all duration-200 rounded-lg border border-border/50 hover:border-accent/30 hover:shadow-lg"
+          >
             <PanelLeft className={cn('w-5 h-5 transition-transform duration-200', collapsed && 'rotate-180')} />
           </Button>
         </div>
