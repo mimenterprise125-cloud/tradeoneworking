@@ -72,6 +72,20 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <span className="text-sm font-semibold text-muted-foreground">Menu</span>
         </div>
 
+        {/* Desktop Sidebar Toggle Button - visible only on lg screens */}
+        <div className="hidden lg:flex p-3 sm:p-4 border-b border-border/50 bg-background/50 backdrop-blur-sm items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarOpen((s) => !s)}
+            className="h-9 w-9 hover:bg-accent/20 transition-all duration-200"
+            aria-label="Toggle sidebar"
+          >
+            <PanelLeft className={cn("w-5 h-5 transition-transform duration-200", !sidebarOpen && "rotate-180")} />
+          </Button>
+          <span className="text-sm font-semibold text-muted-foreground">{sidebarOpen ? 'Hide' : 'Show'} Sidebar</span>
+        </div>
+
         <main className={cn("flex-1 overflow-auto transition-all duration-300")}>
           {/* Responsive padding and view mode toggle */}
           <div className="p-3 sm:p-4 lg:p-8 space-y-4 sm:space-y-6">
