@@ -16,29 +16,33 @@ export async function compressImageFileToWebP(
   const width = Math.round(bitmap.width * scale)
   const height = Math.round(bitmap.height * scale)
 
-  let canvas: OffscreenCanvas | HTMLCanvasElement
+  let blob: Blob
+  
   if (typeof OffscreenCanvas !== 'undefined') {
-    canvas = new OffscreenCanvas(width, height)
+    const canvas = new OffscreenCanvas(width, height)
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Failed to get canvas context')
+    ctx.drawImage(bitmap, 0, 0, width, height)
+    blob = await canvas.convertToBlob({ type: 'image/webp', quality })
   } else {
-    canvas = document.createElement('canvas')
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Failed to get canvas context')
+    ctx.drawImage(bitmap, 0, 0, width, height)
+    
+    blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (b: Blob | null) => {
+          if (!b) return reject(new Error('Failed to create blob'))
+          resolve(b)
+        },
+        'image/webp',
+        quality
+      )
+    })
   }
-
-  // @ts-ignore
-  const ctx = (canvas as any).getContext('2d')
-  ctx.drawImage(bitmap, 0, 0, width, height)
-
-  const mime = 'image/webp'
-  const blob: Blob = await new Promise((resolve, reject) => {
-    // @ts-ignore
-    ;(canvas as HTMLCanvasElement).toBlob(
-      (b: Blob | null) => {
-        if (!b) return reject(new Error('Failed to create blob'))
-        resolve(b)
-      },
-      mime,
-      quality
-    )
-  })
 
   return blob
 }

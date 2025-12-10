@@ -42,6 +42,9 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
     // points-based optional inputs
     stop_loss_points: "",
     target_points: "",
+    // money management
+    risk_amount: "",
+    profit_target: "",
     // link to account
     account_id: "",
     // trade quality
@@ -205,15 +208,15 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
       if (!formData.target_price || Number(formData.target_price) === 0) {
         errs.target = 'Target price is required';
       }
-      if (!formData.target_points || Number(formData.target_points) === 0) {
-        errs.target_points = 'Target points is required';
+      if (!formData.profit_target || Number(formData.profit_target) === 0) {
+        errs.profit_target = 'Profit target amount is required';
       }
     } else if (formData.result === 'SL') {
       if (!formData.stop_loss_price || Number(formData.stop_loss_price) === 0) {
         errs.stop_loss = 'Stop loss price is required';
       }
-      if (!formData.stop_loss_points || Number(formData.stop_loss_points) === 0) {
-        errs.stop_loss_points = 'Stop loss points is required';
+      if (!formData.risk_amount || Number(formData.risk_amount) === 0) {
+        errs.risk_amount = 'Risk amount is required';
       }
     }
 
@@ -234,8 +237,6 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
     } catch (e) {}
 
     setErrors(errs);
-    console.log('📋 Form Validation Errors:', errs);
-    console.log('📊 Form Data:', formData);
   }, [formData]);
 
   // Triggered when Save is clicked from the small add-symbol popover
@@ -423,8 +424,8 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
 
       // compute realized amount
       let realized_amount = 0;
-      if (formData.result === "TP") realized_amount = Number(formData.target_price || 0);
-      else if (formData.result === "SL") realized_amount = -Number(formData.stop_loss_price || 0);
+      if (formData.result === "TP") realized_amount = Number(formData.profit_target || 0);
+      else if (formData.result === "SL") realized_amount = -Number(formData.risk_amount || 0);
       else if (formData.result === "BREAKEVEN") realized_amount = 0;
       else if (formData.result === "MANUAL") {
         const amt = Number(formData.manualAmount || 0);
@@ -447,17 +448,20 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
   setup: formData.setup_name || null,
         setup_rating: formData.setup_rating,
         execution_type: formData.execution_type,
+    entry_price: formData.entry_price ? Number(formData.entry_price) : null,
     stop_loss_price: formData.stop_loss_price ? Number(formData.stop_loss_price) : null,
     target_price: formData.target_price ? Number(formData.target_price) : null,
-    stop_loss_points: formData.stop_loss_points ? Number(formData.stop_loss_points) : null,
-    target_points: formData.target_points ? Number(formData.target_points) : null,
+    stop_loss_points: formData.stop_loss_price && formData.entry_price ? Math.abs(Number(formData.entry_price) - Number(formData.stop_loss_price)) : null,
+    target_points: formData.target_price && formData.entry_price ? Math.abs(Number(formData.entry_price) - Number(formData.target_price)) : null,
         direction: formData.direction,
         result: formData.result,
+    risk_amount: formData.risk_amount ? Number(formData.risk_amount) : null,
+    profit_target: formData.profit_target ? Number(formData.profit_target) : null,
     realized_amount: realized_amount,
-    // realized points: prefer explicit points input, fallback to prices for backward compatibility or manual
-    realized_points: (formData.result === 'MANUAL') ? (Number(formData.manualAmount || 0) * (formData.manualOutcome === 'Profit' ? 1 : -1)) : (formData.result === 'TP' ? (formData.target_points ? Number(formData.target_points) : Number(formData.target_price || 0)) : (formData.result === 'SL' ? (formData.stop_loss_points ? -Number(formData.stop_loss_points) : -Number(formData.stop_loss_price || 0)) : 0)),
+    // realized points: calculated from prices or manual entry
+    realized_points: (formData.result === 'MANUAL') ? (Number(formData.manualAmount || 0) * (formData.manualOutcome === 'Profit' ? 1 : -1)) : (formData.result === 'TP' ? (formData.target_price && formData.entry_price ? Math.abs(Number(formData.entry_price) - Number(formData.target_price)) : 0) : (formData.result === 'SL' ? (formData.stop_loss_price && formData.entry_price ? -Math.abs(Number(formData.entry_price) - Number(formData.stop_loss_price)) : 0) : 0)),
     win: ((formData.result === 'MANUAL') ? (formData.manualOutcome === 'Profit') : ( (formData.result === 'TP') ? true : (formData.result === 'SL' ? false : false) )),
-    account_id: formData.account_id || null,
+    account_id: formData.account_id && formData.account_id.trim() ? formData.account_id : null,
     rule_followed: !!formData.rule_followed,
     confirmation: !!formData.confirmation,
     loss_reason: formData.loss_reason || null,
@@ -489,13 +493,14 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
       }
 
       // save setup if new and not already in list
-      if (formData.setup_name && !setups.includes(formData.setup_name)) {
+      if (formData.setup_name && !setups.some(s => s.name === formData.setup_name)) {
         try {
           const rows = [{ name: formData.setup_name, user_id: userId }];
           await supabase.from("setups").insert(rows);
-          setSetups(s => [formData.setup_name, ...s]);
+          setSetups(s => [{ name: formData.setup_name }, ...s]);
         } catch (e) {
-          // ignore
+          // Ignore 409 conflicts (setup already exists) or other errors
+          console.debug('Setup save error (may be duplicate):', e);
         }
       }
 
@@ -914,14 +919,21 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                   <span className="text-rose-500 font-bold">*</span>
                   {errors.direction && <span className="text-rose-400 text-xs">⚠️</span>}
                 </div>
-                <select className={`h-10 px-3 text-sm bg-background/50 text-foreground rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
-                  errors.direction
-                    ? 'border-2 border-rose-500'
-                    : 'border border-border/50'
-                }`} value={formData.direction} onChange={(e) => setFormData({ ...formData, direction: e.target.value })}>
-                  <option>Buy</option>
-                  <option>Sell</option>
-                </select>
+                <div className="relative">
+                  <select className={`w-full h-11 px-4 pr-10 text-sm font-medium bg-background/50 text-foreground rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-all cursor-pointer ${
+                    errors.direction
+                      ? 'border-2 border-rose-500'
+                      : 'border border-border/50 hover:border-accent/40'
+                  }`} value={formData.direction} onChange={(e) => setFormData({ ...formData, direction: e.target.value })}>
+                    <option value="Buy">Buy</option>
+                    <option value="Sell">Sell</option>
+                  </select>
+                  <div className="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                    </svg>
+                  </div>
+                </div>
                 {errors.direction && (
                   <div className="flex items-center gap-1 text-rose-400 text-xs">
                     <span>⚠️</span>
@@ -952,19 +964,26 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                 <span className="text-rose-500 font-bold">*</span>
                 {errors.session && <span className="text-rose-400 text-xs">⚠️</span>}
               </div>
-              <select className={`h-10 px-3 text-sm bg-background/50 text-foreground rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent transition-all ${
-                errors.session
-                  ? 'border-2 border-rose-500'
-                  : 'border border-border/50'
-              }`} value={formData.session} onChange={(e) => setFormData({ ...formData, session: e.target.value })}>
-                <option>No Session</option>
-                <option>London</option>
-                <option>Asia</option>
-                <option>New York</option>
-                <option>London Killzone</option>
-                <option>Asia Killzone</option>
-                <option>New York Killzone</option>
-              </select>
+              <div className="relative">
+                <select className={`w-full h-11 px-4 pr-10 text-sm font-medium bg-background/50 text-foreground rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-all cursor-pointer ${
+                  errors.session
+                    ? 'border-2 border-rose-500'
+                    : 'border border-border/50 hover:border-accent/40'
+                }`} value={formData.session} onChange={(e) => setFormData({ ...formData, session: e.target.value })}>
+                  <option value="No Session">No Session</option>
+                  <option value="London">London</option>
+                  <option value="Asia">Asia</option>
+                  <option value="New York">New York</option>
+                  <option value="London Killzone">London Killzone</option>
+                  <option value="Asia Killzone">Asia Killzone</option>
+                  <option value="New York Killzone">New York Killzone</option>
+                </select>
+                <div className="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                  </svg>
+                </div>
+              </div>
               {errors.session && (
                 <div className="flex items-center gap-1 text-rose-400 text-xs">
                   <span>⚠️</span>
@@ -991,9 +1010,9 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                           : 'border border-border/50'
                       }`}
                     >
-                      <option value="">Select or create setup...</option>
+                      <option key="__empty__" value="">Select or create setup...</option>
                       {setups.map((s) => (
-                        <option key={s.name} value={s.name} title={s.description || ''}>
+                        <option key={`setup-${s.name}`} value={s.name} title={s.description || ''}>
                           {s.description ? `${s.name} - ${s.description.substring(0, 40)}...` : s.name}
                         </option>
                       ))}
@@ -1056,10 +1075,10 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                 {errors.execution_type && <span className="text-rose-400 text-xs">⚠️</span>}
               </div>
               <div className="relative">
-                <select className={`w-full h-10 px-3 pr-10 text-sm bg-background/50 text-foreground rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors cursor-pointer ${
+                <select className={`w-full h-11 px-4 pr-10 text-sm font-medium bg-background/50 text-foreground rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-all cursor-pointer ${
                   errors.execution_type
                     ? 'border-2 border-rose-500'
-                    : 'border border-border/50'
+                    : 'border border-border/50 hover:border-accent/40'
                 }`} value={formData.execution_type} onChange={(e) => setFormData({ ...formData, execution_type: e.target.value })}>
                   <option value="Market">Market</option>
                   <option value="Limit">Limit</option>
@@ -1110,88 +1129,113 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
           <div className="bg-background/40 rounded-xl p-5 border border-border/30 space-y-4">
             <div className="flex items-center gap-2">
               <div className="text-sm font-semibold text-accent">P&L & Risk</div>
-              <span className="text-rose-500 font-bold text-xs">* (SL/TP Points & Amount required)</span>
+              <span className="text-rose-500 font-bold text-xs">* (SL/TP Price & Amount required)</span>
             </div>
             
-            {/* Points-based P&L */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col space-y-2">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs font-semibold text-rose-400">Stop Loss (pts)</Label>
-                  <span className="text-rose-400 text-xs">⚠️</span>
-                </div>
-                <Input
-                  type="number"
-                  step="0.1"
-                  className={`h-10 px-3 text-sm bg-background/50 text-rose-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-400/50 transition-all border-2 border-rose-500`}
-                  value={formData.stop_loss_points}
-                  onChange={(e)=> setFormData({...formData, stop_loss_points: e.target.value})}
-                  disabled={formData.result === "MANUAL"}
-                  placeholder="0.0"
-                />
-                {errors.stop_loss_points && (
-                  <div className="flex items-center gap-1 text-rose-400 text-xs">
-                    <span>⚠️</span>
-                    <span>{errors.stop_loss_points}</span>
+            {/* Price-based P&L - Input SL/TP prices */}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-3">Enter SL/TP Prices</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-2">
+                  <div className="flex items-center gap-1">
+                    <Label className="text-xs font-semibold text-rose-400">Stop Loss Price</Label>
+                    <span className="text-rose-400 text-xs">⚠️</span>
                   </div>
-                )}
-              </div>
-              <div className="flex flex-col space-y-2">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs font-semibold text-emerald-400">Target (pts)</Label>
-                  {errors.target_points && <span className="text-rose-400 text-xs">⚠️</span>}
+                  <Input 
+                    className={`h-11 px-4 text-sm bg-background/50 text-rose-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-400/50 transition-all border-2 border-rose-500`} 
+                    type="number" 
+                    step="0.01" 
+                    value={formData.stop_loss_price} 
+                    onChange={(e) => setFormData({ ...formData, stop_loss_price: e.target.value })} 
+                    disabled={formData.result === "MANUAL"} 
+                    placeholder="e.g., 4640"
+                  />
                 </div>
-                <Input
-                  type="number"
-                  step="0.1"
-                  className={`h-10 px-3 text-sm bg-background/50 text-emerald-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400/50 transition-all ${
-                    errors.target_points 
-                      ? 'border-2 border-rose-500' 
-                      : 'border border-emerald-400/30'
-                  }`}
-                  value={formData.target_points}
-                  onChange={(e)=> setFormData({...formData, target_points: e.target.value})}
-                  disabled={formData.result === "MANUAL"}
-                  placeholder="0.0"
-                />
+                <div className="flex flex-col space-y-2">
+                  <div className="flex items-center gap-1">
+                    <Label className="text-xs font-semibold text-emerald-400">Target Price</Label>
+                    {errors.target && <span className="text-rose-400 text-xs">⚠️</span>}
+                  </div>
+                  <Input 
+                    className={`h-11 px-4 text-sm bg-background/50 text-emerald-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400/50 transition-all ${
+                      errors.target 
+                        ? 'border-2 border-rose-500' 
+                        : 'border border-emerald-400/30'
+                    }`} 
+                    type="number" 
+                    step="0.01" 
+                    value={formData.target_price} 
+                    onChange={(e) => setFormData({ ...formData, target_price: e.target.value })} 
+                    disabled={formData.result === "MANUAL"}
+                    placeholder="e.g., 4670"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Amount-based P&L */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col space-y-2">
-                <div className="flex items-center gap-1">
-                  <Label className="text-xs font-semibold text-rose-400">Stop Loss ($$)</Label>
-                  <span className="text-rose-400 text-xs">⚠️</span>
+            {/* Auto-calculated Points */}
+            {(formData.entry_price && (formData.stop_loss_price || formData.target_price)) && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-3 text-accent/70">Auto-Calculated Points</p>
+                <div className="grid grid-cols-2 gap-4">
+                  {formData.stop_loss_price && (
+                    <div className="flex flex-col space-y-2">
+                      <Label className="text-xs font-semibold text-rose-400">SL Points (auto)</Label>
+                      <div className="h-11 px-4 flex items-center rounded-lg bg-background/50 border border-rose-400/30 text-rose-400 text-sm font-medium">
+                        {Math.abs(parseFloat(formData.entry_price || '0') - parseFloat(formData.stop_loss_price || '0')).toFixed(1)} pts
+                      </div>
+                    </div>
+                  )}
+                  {formData.target_price && (
+                    <div className="flex flex-col space-y-2">
+                      <Label className="text-xs font-semibold text-emerald-400">TP Points (auto)</Label>
+                      <div className="h-11 px-4 flex items-center rounded-lg bg-background/50 border border-emerald-400/30 text-emerald-400 text-sm font-medium">
+                        {Math.abs(parseFloat(formData.entry_price || '0') - parseFloat(formData.target_price || '0')).toFixed(1)} pts
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <Input 
-                  className={`h-10 px-3 text-sm bg-background/50 text-rose-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-400/50 transition-all border-2 border-rose-500`} 
-                  type="number" 
-                  step="0.01" 
-                  value={formData.stop_loss_price} 
-                  onChange={(e) => setFormData({ ...formData, stop_loss_price: e.target.value })} 
-                  disabled={formData.result === "MANUAL"} 
-                  placeholder="0.00"
-                />
               </div>
-              <div className="flex flex-col space-y-2">
-                <div className="flex items-center gap-1">
-                  <Label className="text-xs font-semibold text-emerald-400">Target ($$)</Label>
-                  {errors.target && <span className="text-rose-400 text-xs">⚠️</span>}
+            )}
+
+            {/* Money Management - Risk/Reward in dollars */}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground mb-3">Money Management (Risk/Reward)</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-2">
+                  <div className="flex items-center gap-1">
+                    <Label className="text-xs font-semibold text-rose-400">Risk Amount ($$)</Label>
+                    <span className="text-rose-400 text-xs">⚠️</span>
+                  </div>
+                  <Input 
+                    className={`h-11 px-4 text-sm bg-background/50 text-rose-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-400/50 transition-all border-2 border-rose-500`} 
+                    type="number" 
+                    step="0.01" 
+                    value={formData.risk_amount} 
+                    onChange={(e) => setFormData({ ...formData, risk_amount: e.target.value })} 
+                    disabled={formData.result === "MANUAL"} 
+                    placeholder="Your risk in $"
+                  />
                 </div>
-                <Input 
-                  className={`h-10 px-3 text-sm bg-background/50 text-emerald-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400/50 transition-all ${
-                    errors.target 
-                      ? 'border-2 border-rose-500' 
-                      : 'border border-emerald-400/30'
-                  }`} 
-                  type="number" 
-                  step="0.01" 
-                  value={formData.target_price} 
-                  onChange={(e) => setFormData({ ...formData, target_price: e.target.value })} 
-                  disabled={formData.result === "MANUAL"}
-                  placeholder="0.00"
-                />
+                <div className="flex flex-col space-y-2">
+                  <div className="flex items-center gap-1">
+                    <Label className="text-xs font-semibold text-emerald-400">Profit Target ($$)</Label>
+                    {errors.target && <span className="text-rose-400 text-xs">⚠️</span>}
+                  </div>
+                  <Input 
+                    className={`h-11 px-4 text-sm bg-background/50 text-emerald-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400/50 transition-all ${
+                      errors.target 
+                        ? 'border-2 border-rose-500' 
+                        : 'border border-emerald-400/30'
+                    }`} 
+                    type="number" 
+                    step="0.01" 
+                    value={formData.profit_target} 
+                    onChange={(e) => setFormData({ ...formData, profit_target: e.target.value })} 
+                    disabled={formData.result === "MANUAL"}
+                    placeholder="Your profit target in $"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -1205,10 +1249,10 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                 {errors.result && <span className="text-rose-400 text-xs">⚠️</span>}
               </div>
               <div className="relative">
-                <select className={`w-full h-10 px-3 pr-10 text-sm bg-background/50 text-foreground rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors cursor-pointer ${
+                <select className={`w-full h-11 px-4 pr-10 text-sm font-medium bg-background/50 text-foreground rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-all cursor-pointer ${
                   errors.result
                     ? 'border-2 border-rose-500'
-                    : 'border border-border/50'
+                    : 'border border-border/50 hover:border-accent/40'
                 }`} value={formData.result} onChange={(e) => setFormData({ ...formData, result: e.target.value })}>
                   <option value="TP">Take Profit</option>
                   <option value="SL">Stop Loss</option>
