@@ -916,21 +916,30 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                       <input
                         type="text"
                         placeholder="Search symbol (EUR/USD, GOLD, etc)..."
-                        value={formData.symbol || symbolSearchInput}
+                        value={symbolSearchInput}
                         onChange={(e) => {
-                          const value = e.target.value;
-                          setFormData({ ...formData, symbol: value });
+                          const value = e.target.value.toUpperCase();
                           setSymbolSearchInput(value);
-                          // Only show dropdown if there's a matching letter/symbol
-                          const trimmed = value.trim();
-                          if (trimmed.length > 0) {
+                          setFormData({ ...formData, symbol: value });
+                          // Show dropdown only if there's text and matching symbols exist
+                          if (value.trim().length > 0) {
                             const hasMatches = symbols.some(s => 
-                              symbolMatches(s, trimmed) || 
-                              s.toLowerCase().includes(trimmed.toLowerCase())
+                              symbolMatches(s, value) || 
+                              s.toUpperCase().includes(value)
                             );
                             setShowSymbolDropdown(hasMatches);
                           } else {
                             setShowSymbolDropdown(false);
+                          }
+                        }}
+                        onFocus={() => {
+                          // Show dropdown if there's text and matches
+                          if (symbolSearchInput.trim().length > 0) {
+                            const hasMatches = symbols.some(s => 
+                              symbolMatches(s, symbolSearchInput) || 
+                              s.toUpperCase().includes(symbolSearchInput)
+                            );
+                            setShowSymbolDropdown(hasMatches);
                           }
                         }}
                         onBlur={() => setTimeout(() => setShowSymbolDropdown(false), 200)}
@@ -946,6 +955,7 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                           type="button"
                           onClick={() => {
                             setSymbolSearchInput("");
+                            setFormData({ ...formData, symbol: "" });
                             setShowSymbolDropdown(false);
                           }}
                           className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
@@ -959,7 +969,7 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                           {symbols
                             .filter((s) =>
                               symbolMatches(s, symbolSearchInput) || 
-                              s.toLowerCase().includes(symbolSearchInput.toLowerCase())
+                              s.toUpperCase().includes(symbolSearchInput)
                             )
                             .slice(0, 10)
                             .map((s) => (
@@ -968,7 +978,7 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                                 type="button"
                                 onClick={() => {
                                   setFormData({ ...formData, symbol: s });
-                                  setSymbolSearchInput("");
+                                  setSymbolSearchInput(s);
                                   setShowSymbolDropdown(false);
                                 }}
                                 className="w-full text-left px-3 py-2 hover:bg-accent/30 text-sm text-foreground border-b border-border/30 last:border-b-0 transition-colors"
@@ -980,18 +990,19 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                       )}
                     </div>
                   </div>
-                  {/* Save Button - Appears when symbol is typed AND not found in list */}
-                  {symbolSearchInput && 
-                   !symbols.some(s => s.toLowerCase() === symbolSearchInput.toLowerCase()) && (
+                  {/* Save Button - Appears when symbol is typed AND NO matching symbols found */}
+                  {symbolSearchInput.trim().length > 0 && 
+                   !symbols.some(s => symbolMatches(s, symbolSearchInput) || s.toUpperCase().includes(symbolSearchInput)) && (
                     <Button 
                       type="button" 
                       size="sm" 
                       className="h-10 bg-accent hover:bg-accent/90 text-white font-medium mt-0 flex-shrink-0"
                       onClick={() => {
-                        const trimmed = symbolSearchInput.trim();
-                        if (trimmed) {
+                        const trimmed = symbolSearchInput.trim().toUpperCase();
+                        if (trimmed && trimmed.length > 0) {
                           handleAddSymbol(trimmed);
                           setSymbolSearchInput("");
+                          setFormData({ ...formData, symbol: "" });
                         }
                       }}
                     >
