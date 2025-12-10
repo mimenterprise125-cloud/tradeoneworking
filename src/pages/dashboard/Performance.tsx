@@ -318,7 +318,7 @@ const Performance = () => {
   }, [user])
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="space-y-6 sm:space-y-8 overflow-x-hidden">
       {/* HEADER */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-start justify-between gap-4 sm:gap-0">
         <div className="w-full">
@@ -345,13 +345,16 @@ const Performance = () => {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
         <SectionHeader icon="" title="Trade Results Distribution" />
         <Card className="p-4 sm:p-5 border border-violet-500/30 shadow-2xl hover:shadow-3xl hover:border-violet-500/50 transition-all duration-300 bg-gradient-to-br from-violet-500/5 via-slate-900/20 to-background relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-60 h-60 bg-gradient-to-br from-violet-500/15 to-transparent rounded-full blur-3xl -z-10" />
-          <div className="absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-tr from-purple-500/10 to-transparent rounded-full blur-3xl -z-10" />
+          <div className="absolute top-0 right-0 w-32 sm:w-40 md:w-60 h-32 sm:h-40 md:h-60 bg-gradient-to-br from-violet-500/15 to-transparent rounded-full blur-3xl -z-10" />
+          <div className="absolute bottom-0 left-0 w-40 sm:w-60 md:w-80 h-40 sm:h-60 md:h-80 bg-gradient-to-tr from-purple-500/10 to-transparent rounded-full blur-3xl -z-10" />
           
           {entries.length > 0 ? (() => {
-            const profits = entries.filter((t:any) => Number(t.realized_amount || 0) > 0).length
-            const losses = entries.filter((t:any) => Number(t.realized_amount || 0) < 0).length
-            const breakeven = entries.filter((t:any) => Number(t.realized_amount || 0) === 0).length
+            // Filter out manual trades for the breakdown
+            const nonManualEntries = entries.filter((t:any) => t.result !== 'MANUAL')
+            
+            const profits = nonManualEntries.filter((t:any) => Number(t.realized_amount || 0) > 0).length
+            const losses = nonManualEntries.filter((t:any) => Number(t.realized_amount || 0) < 0).length
+            const breakeven = nonManualEntries.filter((t:any) => Number(t.realized_amount || 0) === 0).length
             const manual = entries.filter((t:any) => t.result === 'MANUAL').length
             const totalTrades = entries.length
             
@@ -360,27 +363,26 @@ const Performance = () => {
               { name: 'Loss', value: losses, color: '#ef4444' },
               { name: 'Breakeven', value: breakeven, color: '#6b7280' },
               { name: 'Manual Exit', value: manual, color: '#f59e0b' }
-            ].filter(item => item.value > 0)
+            ].filter(item => item.value > 0 && !isNaN(item.value))
 
             return (
-              <div className="grid grid-cols-1 lg:grid-cols-7 gap-8 items-center">
+              <div className="grid grid-cols-1 lg:grid-cols-7 gap-2 sm:gap-4 lg:gap-6 items-start w-full">
                 {/* Bigger Donut Chart - Left (3 cols) */}
-                <div className="lg:col-span-3 flex items-center justify-center" style={{ minHeight: 450 }}>
+                <div className="lg:col-span-3 flex items-center justify-center w-full overflow-hidden" style={{ minHeight: 280 }}>
                   {resultBreakdown.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={450}>
+                    <ResponsiveContainer width="100%" height={280}>
                       <PieChart>
                         <Pie
                           data={resultBreakdown}
                           cx="50%"
                           cy="50%"
-                          innerRadius={110}
-                          outerRadius={160}
+                          innerRadius={80}
+                          outerRadius={120}
                           paddingAngle={2}
                           dataKey="value"
                           animationDuration={1200}
                           animationEasing="ease-out"
-                          label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                          labelLine={true}
+                          labelLine={false}
                         >
                           {resultBreakdown.map((entry, index) => (
                             <Cell 
@@ -392,21 +394,6 @@ const Performance = () => {
                             />
                           ))}
                         </Pie>
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: "rgba(15, 23, 42, 0.95)", 
-                            border: "2px solid rgb(167, 139, 250)",
-                            borderRadius: '12px',
-                            boxShadow: '0 20px 40px rgba(167, 139, 250, 0.3)',
-                            padding: '12px'
-                          }}
-                          formatter={(value: any, name: any, props: any) => [
-                            `${value} trades (${((value/totalTrades)*100).toFixed(1)}%)`,
-                            props.payload.name
-                          ]}
-                          labelStyle={{ color: '#fff' }}
-                          cursor={{ fill: 'rgba(167, 139, 250, 0.1)' }}
-                        />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
@@ -417,22 +404,22 @@ const Performance = () => {
                 </div>
 
                 {/* Stats Grid 2x2 - Right (Smaller, 4 cols) */}
-                <div className="lg:col-span-4 grid grid-cols-2 gap-3 sm:gap-4">
+                <div className="lg:col-span-4 grid grid-cols-2 gap-3 sm:gap-4 w-full">
                   {/* Profit Box */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: 0.1, duration: 0.5 }}
-                    className="group p-4 sm:p-5 rounded-lg bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-background/50 border-2 border-emerald-500/40 hover:border-emerald-500/70 hover:shadow-lg hover:shadow-emerald-500/15 transition-all duration-300 backdrop-blur-sm"
+                    className="group p-2 sm:p-4 rounded-lg bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-background/50 border-2 border-emerald-500/40 hover:border-emerald-500/70 hover:shadow-lg hover:shadow-emerald-500/15 transition-all duration-300 backdrop-blur-sm"
                   >
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <div>
                         <p className="text-xs text-emerald-400 font-bold uppercase tracking-wider">Winning</p>
-                        <p className="text-2xl sm:text-3xl font-bold text-emerald-400 mt-0.5">{profits}</p>
+                        <p className="text-xl sm:text-2xl font-bold text-emerald-400 mt-0.5">{profits}</p>
                       </div>
-                      <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
-                        <span className="text-lg">✓</span>
+                      <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
+                        <span className="text-sm sm:text-lg">✓</span>
                       </div>
                     </div>
                     <div className="w-full bg-emerald-500/20 rounded-full h-1.5">
@@ -450,15 +437,15 @@ const Performance = () => {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: 0.15, duration: 0.5 }}
-                    className="group p-4 sm:p-5 rounded-lg bg-gradient-to-br from-red-500/15 via-red-500/5 to-background/50 border-2 border-red-500/40 hover:border-red-500/70 hover:shadow-lg hover:shadow-red-500/15 transition-all duration-300 backdrop-blur-sm"
+                    className="group p-2 sm:p-4 rounded-lg bg-gradient-to-br from-red-500/15 via-red-500/5 to-background/50 border-2 border-red-500/40 hover:border-red-500/70 hover:shadow-lg hover:shadow-red-500/15 transition-all duration-300 backdrop-blur-sm"
                   >
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <div>
                         <p className="text-xs text-red-400 font-bold uppercase tracking-wider">Losing</p>
-                        <p className="text-2xl sm:text-3xl font-bold text-red-400 mt-0.5">{losses}</p>
+                        <p className="text-xl sm:text-2xl font-bold text-red-400 mt-0.5">{losses}</p>
                       </div>
-                      <div className="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
-                        <span className="text-lg">✕</span>
+                      <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg bg-red-500/20 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
+                        <span className="text-sm sm:text-lg">✕</span>
                       </div>
                     </div>
                     <div className="w-full bg-red-500/20 rounded-full h-1.5">
@@ -476,15 +463,15 @@ const Performance = () => {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: 0.2, duration: 0.5 }}
-                    className="group p-4 sm:p-5 rounded-lg bg-gradient-to-br from-gray-500/15 via-gray-500/5 to-background/50 border-2 border-gray-500/40 hover:border-gray-500/70 hover:shadow-lg hover:shadow-gray-500/15 transition-all duration-300 backdrop-blur-sm"
+                    className="group p-2 sm:p-4 rounded-lg bg-gradient-to-br from-gray-500/15 via-gray-500/5 to-background/50 border-2 border-gray-500/40 hover:border-gray-500/70 hover:shadow-lg hover:shadow-gray-500/15 transition-all duration-300 backdrop-blur-sm"
                   >
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <div>
                         <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Breakeven</p>
-                        <p className="text-2xl sm:text-3xl font-bold text-gray-400 mt-0.5">{breakeven}</p>
+                        <p className="text-xl sm:text-2xl font-bold text-gray-400 mt-0.5">{breakeven}</p>
                       </div>
-                      <div className="w-10 h-10 rounded-lg bg-gray-500/20 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
-                        <span className="text-lg">=</span>
+                      <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg bg-gray-500/20 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
+                        <span className="text-sm sm:text-lg">=</span>
                       </div>
                     </div>
                     <div className="w-full bg-gray-500/20 rounded-full h-1.5">
@@ -502,15 +489,15 @@ const Performance = () => {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: 0.25, duration: 0.5 }}
-                    className="group p-4 sm:p-5 rounded-lg bg-gradient-to-br from-amber-500/15 via-amber-500/5 to-background/50 border-2 border-amber-500/40 hover:border-amber-500/70 hover:shadow-lg hover:shadow-amber-500/15 transition-all duration-300 backdrop-blur-sm"
+                    className="group p-2 sm:p-4 rounded-lg bg-gradient-to-br from-amber-500/15 via-amber-500/5 to-background/50 border-2 border-amber-500/40 hover:border-amber-500/70 hover:shadow-lg hover:shadow-amber-500/15 transition-all duration-300 backdrop-blur-sm"
                   >
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <div>
                         <p className="text-xs text-amber-400 font-bold uppercase tracking-wider">Manual</p>
-                        <p className="text-2xl sm:text-3xl font-bold text-amber-400 mt-0.5">{manual}</p>
+                        <p className="text-xl sm:text-2xl font-bold text-amber-400 mt-0.5">{manual}</p>
                       </div>
-                      <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
-                        <span className="text-lg">⚙</span>
+                      <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg bg-amber-500/20 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
+                        <span className="text-sm sm:text-lg">⚙</span>
                       </div>
                     </div>
                     <div className="w-full bg-amber-500/20 rounded-full h-1.5">
@@ -551,7 +538,7 @@ const Performance = () => {
         <>
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <SectionHeader icon="" title="Risk-to-Reward Execution" />
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
                 <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
                   <Card className="p-5 sm:p-6 border border-emerald-500/30 shadow-lg hover:shadow-2xl hover:border-emerald-500/50 transition-all duration-300 bg-gradient-to-br from-emerald-500/5 via-slate-900/20 to-background relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-500/10 to-transparent rounded-full blur-3xl -z-10" />
