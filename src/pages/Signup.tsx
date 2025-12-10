@@ -162,8 +162,11 @@ const Signup = () => {
           </div>
 
           <h2 className="text-3xl font-bold text-center mb-2">Create Account</h2>
-          <p className="text-muted-foreground text-center mb-8">
-            Start managing your prop firm accounts today
+          <p className="text-sm text-muted-foreground text-center mb-8">
+            Already have an account?{" "}
+            <Link to="/login" className="text-primary hover:underline font-medium">
+              Sign in
+            </Link>
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -247,15 +250,6 @@ const Signup = () => {
               Sign up with Google
             </Button>
           </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              Already have an account?{" "}
-              <Link to="/login" className="text-primary hover:underline font-medium">
-                Sign in
-              </Link>
-            </p>
-          </div>
         </Card>
 
         <div className="mt-6 text-center">
