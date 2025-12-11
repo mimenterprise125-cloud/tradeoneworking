@@ -205,31 +205,89 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // Get current user to verify authentication
       const { data: { user } } = await supabase.auth.getUser();
       
-      // If table doesn't exist or user not authenticated, set defaults
+      // If user not authenticated, set defaults
       if (!user) {
+        console.log('❌ User not authenticated, setting default counts');
         setAdminSettings((prev) => ({
           ...prev,
-          total_user_count: 0,
-          active_user_count: 0,
+          total_user_count: 1,
+          active_user_count: 1,
         }));
         return;
       }
 
-      // Count users from auth.users table through profiles table if available
-      const { count, error: countError } = await supabase
-        .from('profiles') // or any user-related table
-        .select('*', { count: 'exact', head: true });
+      let totalUsers = 0;
+      let activeUsers = 0;
 
-      if (!countError && count) {
-        setAdminSettings((prev) => ({
-          ...prev,
-          total_user_count: count,
-          active_user_count: Math.floor(count * 0.65), // Estimate active users
-        }));
+      // Method 1: Try to use the RPC function (includes real-time online tracking)
+      try {
+        const { data, error } = await supabase
+          .rpc('get_user_count_stats');
+
+        if (!error && data && data.length > 0) {
+          console.log('✅ Got user counts from RPC:', data[0]);
+          totalUsers = data[0].total_auth_users || data[0].total_profiles || 0;
+          // Use real online users count if available, otherwise estimate
+          activeUsers = data[0].online_users_count || Math.ceil(totalUsers * 0.65);
+          console.log('📊 Online users (real-time):', activeUsers);
+        }
+      } catch (rpcErr) {
+        console.log('⚠️ RPC function not available yet, falling back to profiles table');
       }
+
+      // Method 2: If RPC didn't work, count from profiles table
+      if (totalUsers === 0) {
+        try {
+          const { count, error } = await supabase
+            .from('profiles')
+            .select('*', { count: 'exact', head: true });
+
+          if (!error && count) {
+            console.log('✅ Got user count from profiles table:', count);
+            totalUsers = count || 0;
+            
+            // Try to get real online count from user_sessions
+            try {
+              const { count: onlineCount, error: sessionError } = await supabase
+                .from('user_sessions')
+                .select('*', { count: 'exact', head: true })
+                .gt('last_activity', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+              
+              if (!sessionError && onlineCount !== null) {
+                activeUsers = onlineCount;
+                console.log('✅ Got online users from sessions:', activeUsers);
+              } else {
+                activeUsers = Math.ceil(totalUsers * 0.65);
+              }
+            } catch (sessionErr) {
+              activeUsers = Math.ceil(totalUsers * 0.65);
+            }
+          }
+        } catch (err) {
+          console.log('⚠️ Could not count from profiles table:', err);
+        }
+      }
+
+      // Method 3: Fallback - at least show current user
+      if (totalUsers === 0) {
+        totalUsers = 1;
+        activeUsers = 1;
+      }
+
+      console.log('📊 Final user counts - Total:', totalUsers, 'Online:', activeUsers);
+      
+      setAdminSettings((prev) => ({
+        ...prev,
+        total_user_count: totalUsers,
+        active_user_count: activeUsers,
+      }));
     } catch (err) {
-      console.warn('User count fetch skipped - table may not exist yet:', err);
-      // Don't throw error, just use defaults
+      console.warn('User count fetch error:', err);
+      setAdminSettings((prev) => ({
+        ...prev,
+        total_user_count: Math.max(prev.total_user_count, 1),
+        active_user_count: Math.max(prev.active_user_count, 1),
+      }));
     }
   };
 

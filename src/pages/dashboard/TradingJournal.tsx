@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { AddJournalDialog } from "@/components/modals/AddJournalDialog";
 import { EditJournalDialog } from "@/components/modals/EditJournalDialog";
 import { ViewJournalDialog } from "@/components/modals/ViewJournalDialog";
+import { calculatePointsFromPrice, calculateRRFromPrices } from "@/lib/rr-utils";
 import supabase from "@/lib/supabase";
 import { useAuth } from "@/lib/AuthProvider";
 import { useMemo } from "react";
@@ -282,18 +283,26 @@ const TradingJournal = () => {
                   const realized = Number(e.realized_amount ?? 0);
                   const isWin = realized > 0;
                   const isLoss = realized < 0;
-                  const direction = e.direction ? (e.direction.toUpperCase() === 'LONG' ? '🟢 LONG' : '🔴 SHORT') : '—';
+                  const direction = e.direction ? (e.direction.toUpperCase() === 'BUY' ? '🟢 BUY' : '🔴 SELL') : '—';
                   
-                  // Calculate RR
+                  // Calculate RR from prices (primary - pip aware) or points (fallback)
+                  const symbol = (e.symbol || '').toString().toUpperCase();
+                  const entryPrice = Number(e.entry_price || 0);
+                  const tpPrice = Number(e.target_price || 0);
+                  const slPrice = Number(e.stop_loss_price || 0);
                   const riskPoints = Number(e.stop_loss_points || 0);
+                  const rewardPoints = Number(e.target_points || 0);
+                  
                   let rr = 0;
-                  if (e.result === 'TP' && riskPoints > 0) {
-                    rr = (Number(e.target_points || 0)) / riskPoints;
-                  } else if (e.result === 'SL') {
-                    rr = -1;
-                  } else if (e.result === 'MANUAL' && riskPoints > 0) {
-                    rr = realized / riskPoints;
+                  if (entryPrice > 0 && tpPrice > 0 && slPrice > 0) {
+                    // Use pip-aware RR calculation (works for all asset types)
+                    rr = calculateRRFromPrices(entryPrice, tpPrice, slPrice);
+                  } else if (riskPoints > 0 && rewardPoints > 0) {
+                    // Fallback to points-based calculation
+                    rr = rewardPoints / riskPoints;
+                    rr = Math.min(Math.max(rr, 0), 50);
                   }
+                  
                   const rrDisplay = rr % 1 === 0 ? Math.round(rr) : rr.toFixed(2);
                   const execution = e.execution_type || '—';
                   const result = e.result || '—';
@@ -588,28 +597,45 @@ function WeeklyView({ entries }: { entries: any[] }){
   const pairAgg = entries.reduce((acc:any, t:any)=>{ const s = t.symbol||'N/A'; acc[s] = acc[s]||0; acc[s]+= Number(t.realized_amount||0); return acc }, {})
   const pairs = Object.entries(pairAgg).map(([k,v])=>({pair:k, total:v})).sort((a:any,b:any)=> b.total - a.total)
 
-  // avg RRR = average of (target_points) / (stop_loss_points) across trades
-  // Considers manual exits with realized_amount as the achieved profit/loss
+  // avg RRR = average of RR across all trades
+  // Uses pip-aware RR calculation for prices, amount-based for manual exits
   const rr = entries.filter((t:any)=> t.stop_loss_points && t.stop_loss_points > 0).map((t:any)=> {
-    const riskPoints = Number(t.stop_loss_points || 0)
-    const rewardPoints = Number(t.target_points || 0)
-    const realizedAmount = Number(t.realized_amount || 0)
+    const symbol = (t.symbol || '').toString().toUpperCase();
+    const entryPrice = Number(t.entry_price || 0);
+    const tpPrice = Number(t.target_price || 0);
+    const slPrice = Number(t.stop_loss_price || 0);
+    const riskAmount = Number(t.risk_amount || 0);
+    const realizedAmount = Number(t.realized_amount || 0);
+    const riskPoints = Number(t.stop_loss_points || 0);
+    const rewardPoints = Number(t.target_points || 0);
     
-    // Planned RR
-    let targetRR = riskPoints > 0 ? rewardPoints / riskPoints : 0
-    
-    // Achieved RR: for manual exits use realized_amount, for others use result
-    let achievedRR = targetRR
-    if (t.result === 'MANUAL' && riskPoints > 0) {
-      achievedRR = realizedAmount / riskPoints
-    } else if (t.result === 'TP') {
-      achievedRR = rewardPoints / riskPoints
-    } else if (t.result === 'SL') {
-      achievedRR = -1  // -1 RR when stopped out
+    // Planned RR: use pip-aware calculation if prices available
+    let targetRR = 0;
+    if (entryPrice > 0 && tpPrice > 0 && slPrice > 0) {
+      targetRR = calculateRRFromPrices(entryPrice, tpPrice, slPrice);
+    } else if (riskPoints > 0 && rewardPoints > 0) {
+      targetRR = rewardPoints / riskPoints;
+      targetRR = Math.min(Math.max(targetRR, 0), 50);
     }
     
-    return achievedRR
-  })
+    // Achieved RR: for manual exits use amount-based, for others use price-based or points-based
+    let achievedRR = targetRR;
+    if (t.result === 'MANUAL' && riskAmount > 0) {
+      // For manual exits: use realized_amount / risk_amount (amount-based)
+      achievedRR = realizedAmount / riskAmount;
+      achievedRR = Math.min(Math.max(achievedRR, -10), 50);
+    } else if (t.result === 'TP' && entryPrice > 0 && tpPrice > 0 && slPrice > 0) {
+      // For TP hit with prices: use pip-aware calculation
+      achievedRR = calculateRRFromPrices(entryPrice, tpPrice, slPrice);
+    } else if (t.result === 'SL') {
+      // For SL hit: achieved is -1 (lost the risk)
+      achievedRR = -1;
+    } else if (t.result === 'BREAKEVEN') {
+      achievedRR = 0;
+    }
+    
+    return achievedRR;
+  });
   const avgRRR = rr.length? (rr.reduce((s:any,x:any)=>s+x,0)/rr.length): 0
   const avgDuration = entries.length? (entries.reduce((s:any,t:any)=> s + Number(t.duration_minutes||0),0)/entries.length) : 0
 

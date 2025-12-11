@@ -33,6 +33,31 @@ const Login = () => {
         return
       }
 
+      // Create or verify profile entry for the user
+      if (data.user) {
+        try {
+          // Check if profile exists
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', data.user.id)
+            .single();
+
+          // If profile doesn't exist, create it
+          if (!profileData) {
+            await supabase
+              .from('profiles')
+              .insert({
+                id: data.user.id,
+                full_name: data.user.user_metadata?.full_name || email.split('@')[0],
+              });
+            console.log('✅ Profile created for existing user:', data.user.id);
+          }
+        } catch (profileErr) {
+          console.warn('⚠️ Could not ensure profile exists:', profileErr);
+        }
+      }
+
       // If user needs email confirmation, Supabase returns user and possibly confirmationRequired info
       navigate('/dashboard/journal')
     })()

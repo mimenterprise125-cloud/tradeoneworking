@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { compressImageFileToWebP, uploadJournalImage } from "@/lib/image-utils";
 import { normalizeSymbolKey, formatSymbolDisplay, symbolMatches } from "@/lib/symbol-utils";
+import { calculatePointsFromPrice, getPipSize } from "@/lib/rr-utils";
 import supabase from "@/lib/supabase";
 
 interface AddJournalDialogProps {
@@ -451,15 +452,16 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
     entry_price: formData.entry_price ? Number(formData.entry_price) : null,
     stop_loss_price: formData.stop_loss_price ? Number(formData.stop_loss_price) : null,
     target_price: formData.target_price ? Number(formData.target_price) : null,
-    stop_loss_points: formData.stop_loss_price && formData.entry_price ? Math.abs(Number(formData.entry_price) - Number(formData.stop_loss_price)) : null,
-    target_points: formData.target_price && formData.entry_price ? Math.abs(Number(formData.entry_price) - Number(formData.target_price)) : null,
+    // Calculate points using pip conversion based on symbol type
+    stop_loss_points: formData.stop_loss_price && formData.entry_price ? Math.round(calculatePointsFromPrice(Number(formData.entry_price), Number(formData.stop_loss_price), formData.symbol)) : null,
+    target_points: formData.target_price && formData.entry_price ? Math.round(calculatePointsFromPrice(Number(formData.entry_price), Number(formData.target_price), formData.symbol)) : null,
         direction: formData.direction,
         result: formData.result,
     risk_amount: formData.risk_amount ? Number(formData.risk_amount) : null,
     profit_target: formData.profit_target ? Number(formData.profit_target) : null,
     realized_amount: realized_amount,
-    // realized points: calculated from prices or manual entry
-    realized_points: (formData.result === 'MANUAL') ? (Number(formData.manualAmount || 0) * (formData.manualOutcome === 'Profit' ? 1 : -1)) : (formData.result === 'TP' ? (formData.target_price && formData.entry_price ? Math.abs(Number(formData.entry_price) - Number(formData.target_price)) : 0) : (formData.result === 'SL' ? (formData.stop_loss_price && formData.entry_price ? -Math.abs(Number(formData.entry_price) - Number(formData.stop_loss_price)) : 0) : 0)),
+    // realized points: calculated from prices using pip conversion or manual entry
+    realized_points: (formData.result === 'MANUAL') ? (Number(formData.manualAmount || 0) * (formData.manualOutcome === 'Profit' ? 1 : -1)) : (formData.result === 'TP' ? (formData.target_price && formData.entry_price ? Math.round(calculatePointsFromPrice(Number(formData.entry_price), Number(formData.target_price), formData.symbol)) : 0) : (formData.result === 'SL' ? (formData.stop_loss_price && formData.entry_price ? -Math.round(calculatePointsFromPrice(Number(formData.entry_price), Number(formData.stop_loss_price), formData.symbol)) : 0) : 0)),
     win: ((formData.result === 'MANUAL') ? (formData.manualOutcome === 'Profit') : ( (formData.result === 'TP') ? true : (formData.result === 'SL' ? false : false) )),
     account_id: formData.account_id && formData.account_id.trim() ? formData.account_id : null,
     rule_followed: !!formData.rule_followed,
@@ -1182,7 +1184,7 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                     <div className="flex flex-col space-y-2">
                       <Label className="text-xs font-semibold text-rose-400">SL Points (auto)</Label>
                       <div className="h-11 px-4 flex items-center rounded-lg bg-background/50 border border-rose-400/30 text-rose-400 text-sm font-medium">
-                        {Math.abs(parseFloat(formData.entry_price || '0') - parseFloat(formData.stop_loss_price || '0')).toFixed(1)} pts
+                        {Math.round(calculatePointsFromPrice(parseFloat(formData.entry_price || '0'), parseFloat(formData.stop_loss_price || '0'), formData.symbol)).toFixed(0)} pts
                       </div>
                     </div>
                   )}
@@ -1190,10 +1192,35 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                     <div className="flex flex-col space-y-2">
                       <Label className="text-xs font-semibold text-emerald-400">TP Points (auto)</Label>
                       <div className="h-11 px-4 flex items-center rounded-lg bg-background/50 border border-emerald-400/30 text-emerald-400 text-sm font-medium">
-                        {Math.abs(parseFloat(formData.entry_price || '0') - parseFloat(formData.target_price || '0')).toFixed(1)} pts
+                        {Math.round(calculatePointsFromPrice(parseFloat(formData.entry_price || '0'), parseFloat(formData.target_price || '0'), formData.symbol)).toFixed(0)} pts
                       </div>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* RR Ratio Display */}
+            {(formData.entry_price && formData.stop_loss_price && formData.target_price) && (
+              <div className="bg-accent/10 rounded-lg p-4 border border-accent/30">
+                <p className="text-xs font-semibold text-accent mb-2">Risk-Reward Ratio</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-accent">
+                    {(() => {
+                      const tpPips = Math.round(calculatePointsFromPrice(parseFloat(formData.entry_price), parseFloat(formData.target_price), formData.symbol));
+                      const slPips = Math.round(calculatePointsFromPrice(parseFloat(formData.entry_price), parseFloat(formData.stop_loss_price), formData.symbol));
+                      if (slPips === 0) return 'N/A';
+                      const rr = tpPips / slPips;
+                      return `1:${rr.toFixed(2)}`;
+                    })()}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {(() => {
+                      const tpPips = Math.round(calculatePointsFromPrice(parseFloat(formData.entry_price), parseFloat(formData.target_price), formData.symbol));
+                      const slPips = Math.round(calculatePointsFromPrice(parseFloat(formData.entry_price), parseFloat(formData.stop_loss_price), formData.symbol));
+                      return `(${slPips} pips risk → ${tpPips} pips reward)`;
+                    })()}
+                  </span>
                 </div>
               </div>
             )}
@@ -1212,7 +1239,24 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                     type="number" 
                     step="0.01" 
                     value={formData.risk_amount} 
-                    onChange={(e) => setFormData({ ...formData, risk_amount: e.target.value })} 
+                    onChange={(e) => {
+                      const riskAmount = e.target.value;
+                      setFormData({ ...formData, risk_amount: riskAmount });
+                      
+                      // Auto-calculate profit target based on TP pips
+                      if (riskAmount && formData.entry_price && formData.target_price) {
+                        const tpPips = Math.round(calculatePointsFromPrice(parseFloat(formData.entry_price), parseFloat(formData.target_price), formData.symbol));
+                        const slPips = Math.round(calculatePointsFromPrice(parseFloat(formData.entry_price), parseFloat(formData.stop_loss_price || '0'), formData.symbol));
+                        
+                        if (slPips > 0) {
+                          // Calculate pip value: how much $ per pip
+                          const riskPerPip = parseFloat(riskAmount) / slPips;
+                          // Profit target = risk per pip × TP pips
+                          const profitTarget = riskPerPip * tpPips;
+                          setFormData(prev => ({ ...prev, profit_target: profitTarget.toFixed(2) }));
+                        }
+                      }
+                    }} 
                     disabled={formData.result === "MANUAL"} 
                     placeholder="Your risk in $"
                   />

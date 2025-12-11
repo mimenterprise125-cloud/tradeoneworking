@@ -7,8 +7,6 @@ import { useAdmin } from '@/lib/AdminContext';
 import { useAuth } from '@/lib/AuthProvider';
 import { motion } from 'framer-motion';
 import { PricingManagementTab } from '@/components/PricingManagementTab';
-import { SocialLinksManager } from '@/components/SocialLinksManager';
-import Footer from '@/components/Footer';
 import {
   AlertCircle,
   Users,
@@ -22,16 +20,15 @@ import {
   LogOut,
   Eye,
   EyeOff,
-  Link as LinkIcon,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-type TabType = 'overview' | 'errors' | 'users' | 'pricing' | 'features' | 'maintenance' | 'links';
+type TabType = 'overview' | 'errors' | 'users' | 'pricing' | 'features' | 'maintenance';
 
 const Admin = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { adminSettings, loading, error, updateSettings, toggleMaintenanceMode, togglePricingEnabled, togglePropFirmLock, toggleJournalLock, togglePerformanceAnalyticsLock, clearErrorLogs, updatePricingTiers, updateSocialLinks } = useAdmin();
+  const { adminSettings, loading, error, updateSettings, toggleMaintenanceMode, togglePricingEnabled, togglePropFirmLock, toggleJournalLock, togglePerformanceAnalyticsLock, clearErrorLogs, updatePricingTiers } = useAdmin();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showPricingForm, setShowPricingForm] = useState(false);
   const [pricingTiers, setPricingTiers] = useState(adminSettings.pricing_tiers);
@@ -64,11 +61,11 @@ const Admin = () => {
 
   // Log when adminSettings changes
   useEffect(() => {
-    //console.log('🔄 [Admin.tsx] adminSettings changed:', {
-      //propfirm_locked: adminSettings.propfirm_locked,
-      //journal_locked: adminSettings.journal_locked,
-      //performance_analytics_locked: adminSettings.performance_analytics_locked,
-    //});
+    console.log('🔄 [Admin.tsx] adminSettings changed:', {
+      propfirm_locked: adminSettings.propfirm_locked,
+      journal_locked: adminSettings.journal_locked,
+      performance_analytics_locked: adminSettings.performance_analytics_locked,
+    });
   }, [adminSettings]);
 
   // Show loading while checking role
@@ -168,7 +165,6 @@ const Admin = () => {
           { tab: 'users', label: 'Users', icon: Users },
           { tab: 'pricing', label: 'Pricing', icon: DollarSign },
           { tab: 'features', label: 'Features', icon: Lock },
-          { tab: 'links', label: 'Links', icon: LinkIcon },
           { tab: 'maintenance', label: 'Maintenance', icon: Power },
         ].map(({ tab, label, icon: Icon }) => (
           <button
@@ -793,58 +789,14 @@ const Admin = () => {
           </motion.div>
         )}
 
-        {/* Links Tab */}
-        {activeTab === 'links' && (
-          <motion.div
-            className="space-y-4 sm:space-y-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold mb-2">Community & Social Links</h2>
-              <p className="text-xs sm:text-sm text-gray-400">Manage community and footer social media links</p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-              {/* Community Links */}
-              <Card className="bg-slate-800/50 border-slate-700 p-3 sm:p-6">
-                <SocialLinksManager
-                  links={adminSettings.community_links}
-                  linkType="community"
-                  onUpdate={async (updatedCommunityLinks) => {
-                    // Combine community and footer links for update
-                    const allLinks = [...updatedCommunityLinks, ...adminSettings.footer_social_links];
-                    await updateSocialLinks(allLinks);
-                  }}
-                  isLoading={loading}
-                />
-              </Card>
-
-              {/* Footer Social Links */}
-              <Card className="bg-slate-800/50 border-slate-700 p-6">
-                <SocialLinksManager
-                  links={adminSettings.footer_social_links}
-                  linkType="footer"
-                  onUpdate={async (updatedFooterLinks) => {
-                    // Combine community and footer links for update
-                    const allLinks = [...adminSettings.community_links, ...updatedFooterLinks];
-                    await updateSocialLinks(allLinks);
-                  }}
-                  isLoading={loading}
-                />
-              </Card>
-            </div>
-          </motion.div>
-        )}
-
         {/* Maintenance Tab */}
         {activeTab === 'maintenance' && (
           <motion.div
-            className="space-y-4 sm:space-y-6"
+            className="space-y-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            <h2 className="text-xl sm:text-2xl font-bold">Maintenance Mode</h2>
+            <h2 className="text-2xl font-bold">Maintenance Mode</h2>
 
             <Card className="bg-slate-800/50 border-slate-700 p-8">
               <div className="text-center">
@@ -857,9 +809,6 @@ const Admin = () => {
                     ? 'The website is currently showing the maintenance page to all users.'
                     : 'The website is operating normally. Toggle to put the site in maintenance mode.'}
                 </p>
-
-                <div className="mb-6 flex flex-col sm:flex-row gap-4 items-center justify-center">
-                </div>
 
                 <Button
                   onClick={() => toggleMaintenanceMode()}
@@ -893,9 +842,6 @@ const Admin = () => {
           </motion.div>
         )}
       </div>
-
-      {/* Footer */}
-      <Footer />
     </div>
   );
 };

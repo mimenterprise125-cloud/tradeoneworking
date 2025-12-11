@@ -7,6 +7,7 @@ import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardProvider } from "./lib/DashboardContext";
 import { AuthProvider } from './lib/AuthProvider'
 import { AdminProvider } from './lib/AdminContext'
+import { SessionTracker } from './components/SessionTracker'
 import AuthGuard from './components/AuthGuard'
 import FeatureGuard from './components/FeatureGuard'
 import LockedFeaturePage from './components/LockedFeaturePage'
@@ -35,6 +36,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
       <TooltipProvider>
       <AuthProvider>
+      <SessionTracker>
       <AdminProvider>
       <Toaster />
       <Sonner />
@@ -74,6 +76,7 @@ const App = () => (
       </DashboardProvider>
       </Router>
       </AdminProvider>
+      </SessionTracker>
   </AuthProvider>
   </TooltipProvider>
   </QueryClientProvider>

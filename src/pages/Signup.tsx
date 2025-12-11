@@ -69,6 +69,19 @@ const Signup = () => {
         // whether email confirmation is required. Show the friendly next-step message
         // when there's no error.
         if (!result.error && result.data.user) {
+          // Create a profile entry for the new user
+          try {
+            await supabase
+              .from('profiles')
+              .insert({
+                id: result.data.user.id,
+                full_name: fullName || email.split('@')[0],
+              });
+            console.log('✅ Profile created for user:', result.data.user.id);
+          } catch (profileErr) {
+            console.warn('⚠️ Could not create profile (may already exist):', profileErr);
+          }
+
           toast({ 
             title: '✅ Signup successful!', 
             description: 'Check your email for a verification link. Click it to activate your account.',
