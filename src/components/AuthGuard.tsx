@@ -18,7 +18,7 @@ export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
       const cached = sessionStorage.getItem('tradeone-cached-user')
       hasCachedUser = !!cached
       if (cached && !user) {
-        console.log('📦 Found cached user in sessionStorage, waiting for auth to sync...')
+        //console.log('📦 Found cached user in sessionStorage, waiting for auth to sync...')
       }
     } catch (e) {
       // ignore

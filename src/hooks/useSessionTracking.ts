@@ -37,7 +37,7 @@ export const useSessionTracking = () => {
         if (error) {
           console.warn('⚠️ Failed to update session:', error);
         } else {
-          console.log('✅ Session updated for user:', user.id);
+          //console.log('✅ Session updated for user:', user.id);
         }
       } catch (err) {
         console.warn('Session tracking error:', err);

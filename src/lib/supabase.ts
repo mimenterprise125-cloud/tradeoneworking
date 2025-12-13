@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -11,9 +11,15 @@ function missingEnvError() {
   )
 }
 
+// Store the client in globalThis to prevent multiple instances during HMR
+declare global {
+  var __supabase: SupabaseClient | undefined
+}
+
 // If env vars are present, create a real client. Otherwise export a safe stub
+// Use globalThis to persist the client across HMR reloads
 export const supabase = isSupabaseConfigured
-  ? createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+  ? (globalThis.__supabase ?? (globalThis.__supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
       auth: {
         // Use localStorage to persist session across page navigations
         // This prevents logout on back button
@@ -23,7 +29,7 @@ export const supabase = isSupabaseConfigured
         persistSession: true,
         detectSessionInUrl: true
       }
-    })
+    })))
   : ((): any => {
       // safe stub that fails with helpful errors when methods are used
       const throwMissing = () => {
