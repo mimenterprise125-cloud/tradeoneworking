@@ -133,7 +133,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, 10000);
 
     return () => {
-      console.log('�🔌 Unsubscribing from admin_settings_changes and stopping polling');
+      //console.log('�🔌 Unsubscribing from admin_settings_changes and stopping polling');
       try {
         supabase.removeChannel(channel);
       } catch (e) {
@@ -225,7 +225,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .rpc('get_user_count_stats');
 
         if (!error && data && data.length > 0) {
-          console.log('✅ Got user counts from RPC:', data[0]);
+          //console.log('✅ Got user counts from RPC:', data[0]);
           totalUsers = data[0].total_auth_users || data[0].total_profiles || 0;
           // Use real online users count if available, otherwise estimate
           activeUsers = data[0].online_users_count || Math.ceil(totalUsers * 0.65);

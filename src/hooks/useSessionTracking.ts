@@ -50,31 +50,28 @@ export const useSessionTracking = () => {
     // Update every 2 minutes (aggressive tracking)
     const interval = setInterval(updateSession, 2 * 60 * 1000);
 
-    // Update on user interaction (debounced)
+    // Update on user interaction (debounced) - Only for significant actions
     let activityTimeout: NodeJS.Timeout;
     const handleUserActivity = () => {
       clearTimeout(activityTimeout);
-      // Debounce to once per minute
+      // Debounce to once per minute to avoid excessive updates
       activityTimeout = setTimeout(() => {
         updateSession();
-      }, 1000);
+      }, 60000); // 1 minute debounce
     };
 
-    // Listen for user interactions
-    window.addEventListener('mousemove', handleUserActivity);
+    // Listen for significant user interactions only
+    // Removed scroll and mousemove to reduce noise on mobile
     window.addEventListener('keypress', handleUserActivity);
     window.addEventListener('click', handleUserActivity);
-    window.addEventListener('scroll', handleUserActivity);
     window.addEventListener('touchstart', handleUserActivity);
 
     // Cleanup
     return () => {
       clearInterval(interval);
       clearTimeout(activityTimeout);
-      window.removeEventListener('mousemove', handleUserActivity);
       window.removeEventListener('keypress', handleUserActivity);
       window.removeEventListener('click', handleUserActivity);
-      window.removeEventListener('scroll', handleUserActivity);
       window.removeEventListener('touchstart', handleUserActivity);
     };
   }, [user?.id]);

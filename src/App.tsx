@@ -37,34 +37,33 @@ const queryClient = new QueryClient();
 // Global Auth Loader - Intercepts all auth-related URLs before routing
 function AuthLoadingInterceptor({ children }: { children: React.ReactNode }) {
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [hasChecked, setHasChecked] = useState(false);
 
   useEffect(() => {
+    // Only check ONCE on initial mount, not on every navigation
+    if (hasChecked) return;
+    
     // Check if URL contains auth-related parameters
     const checkAuthParams = () => {
       const hash = window.location.hash;
       const search = window.location.search;
       const fullUrl = hash + search;
 
-      // Check for Supabase auth tokens, verification links, or reset links
-      const hasAuthTokens = 
-        fullUrl.includes('access_token') ||
-        fullUrl.includes('refresh_token') ||
-        fullUrl.includes('token_type') ||
+      // Only check for ACTUAL auth tokens (not just route names)
+      // This prevents false positives when navigating to /verify or /confirm routes
+      const hasActualAuthTokens = 
+        fullUrl.includes('access_token=') ||
+        fullUrl.includes('refresh_token=') ||
+        fullUrl.includes('token_type=') ||
         fullUrl.includes('type=recovery') ||
         fullUrl.includes('type=signup') ||
         fullUrl.includes('type=invite') ||
         fullUrl.includes('type=magiclink') ||
         fullUrl.includes('type=email_change') ||
         search.includes('token=') ||
-        search.includes('code=') ||
-        hash.includes('#verify') ||
-        hash.includes('#confirm') ||
-        hash.includes('#reset') ||
-        hash.includes('/verify') ||
-        hash.includes('/confirm') ||
-        hash.includes('/reset');
+        search.includes('code=');
 
-      if (hasAuthTokens) {
+      if (hasActualAuthTokens) {
         setIsAuthLoading(true);
         
         // Redirect to auth callback after a brief moment
@@ -73,10 +72,12 @@ function AuthLoadingInterceptor({ children }: { children: React.ReactNode }) {
           setTimeout(() => setIsAuthLoading(false), 500);
         }, 100);
       }
+      
+      setHasChecked(true);
     };
 
     checkAuthParams();
-  }, []);
+  }, [hasChecked]);
 
   if (isAuthLoading) {
     return (

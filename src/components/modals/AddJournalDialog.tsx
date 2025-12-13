@@ -14,6 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useModalBackButton } from "@/hooks/useModalBackButton";
 import { compressImageFileToWebP, uploadJournalImage } from "@/lib/image-utils";
 import { normalizeSymbolKey, formatSymbolDisplay, symbolMatches } from "@/lib/symbol-utils";
 import { calculatePointsFromPrice, getPipSize } from "@/lib/rr-utils";
@@ -29,6 +30,9 @@ const nowLocal = () => new Date().toISOString().slice(0, 16);
 
 export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDialogProps) => {
   const { toast } = useToast();
+  
+  // Handle back button to close modal instead of navigating
+  useModalBackButton(open, () => onOpenChange(false));
   const [formData, setFormData] = useState<any>({
   symbol: "",
   entry_at: nowLocal(),

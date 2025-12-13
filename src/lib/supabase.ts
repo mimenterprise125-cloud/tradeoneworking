@@ -13,7 +13,17 @@ function missingEnvError() {
 
 // If env vars are present, create a real client. Otherwise export a safe stub
 export const supabase = isSupabaseConfigured
-  ? createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!)
+  ? createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+      auth: {
+        // Use localStorage to persist session across page navigations
+        // This prevents logout on back button
+        storage: window.localStorage,
+        storageKey: 'tradeone-auth-token',
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true
+      }
+    })
   : ((): any => {
       // safe stub that fails with helpful errors when methods are used
       const throwMissing = () => {

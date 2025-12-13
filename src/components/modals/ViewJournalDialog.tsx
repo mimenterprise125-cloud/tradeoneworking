@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, ExternalLink } from "lucide-react";
+import { useModalBackButton } from "@/hooks/useModalBackButton";
 
 const scrollHideStyles = `
   .view-dialog-scroll::-webkit-scrollbar {
@@ -27,6 +28,8 @@ interface ViewJournalDialogProps {
 }
 
 export const ViewJournalDialog = ({ open, onOpenChange, entry }: ViewJournalDialogProps) => {
+  // Handle back button to close modal instead of navigating
+  useModalBackButton(open, () => onOpenChange(false));
   if (!entry) return null;
 
   const timestamp = entry.entry_at || entry.executed_at || entry.created_at;

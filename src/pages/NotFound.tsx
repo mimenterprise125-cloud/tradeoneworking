@@ -9,15 +9,17 @@ const NotFound = () => {
   const [isAuthUrl, setIsAuthUrl] = useState(false);
 
   useEffect(() => {
-    // Check if this is actually an auth callback URL
+    // Only check if this is an auth callback URL with actual tokens
+    // Don't redirect normal 404s to auth callback
     const hash = window.location.hash;
     const search = window.location.search;
-    const fullUrl = hash + search + location.pathname;
+    const fullUrl = hash + search;
 
-    const hasAuthTokens = 
-      fullUrl.includes('access_token') ||
-      fullUrl.includes('refresh_token') ||
-      fullUrl.includes('token_type') ||
+    // Only match URLs with actual auth tokens (not just route names)
+    const hasActualAuthTokens = 
+      fullUrl.includes('access_token=') ||
+      fullUrl.includes('refresh_token=') ||
+      fullUrl.includes('token_type=') ||
       fullUrl.includes('type=recovery') ||
       fullUrl.includes('type=signup') ||
       fullUrl.includes('type=invite') ||
@@ -26,16 +28,15 @@ const NotFound = () => {
       search.includes('token=') ||
       search.includes('code=');
 
-    if (hasAuthTokens) {
+    if (hasActualAuthTokens) {
       setIsAuthUrl(true);
       // Redirect to auth callback
       setTimeout(() => {
         navigate('/auth/callback', { replace: true });
       }, 100);
-    } else {
-      console.error("404 Error: User attempted to access non-existent route:", location.pathname);
     }
-  }, [location.pathname, navigate]);
+    // Don't log errors for normal 404s - this clutters the console
+  }, [navigate]);
 
   // Show loading screen if this is an auth URL
   if (isAuthUrl) {

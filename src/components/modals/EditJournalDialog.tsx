@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useModalBackButton } from "@/hooks/useModalBackButton";
 import supabase from "@/lib/supabase";
 
 interface EditJournalDialogProps {
@@ -22,6 +23,9 @@ interface EditJournalDialogProps {
 
 export const EditJournalDialog = ({ open, onOpenChange, entry }: EditJournalDialogProps) => {
   const { toast } = useToast();
+  
+  // Handle back button to close modal instead of navigating
+  useModalBackButton(open, () => onOpenChange(false));
   const [form, setForm] = useState<any>({});
   const [symbols, setSymbols] = useState<string[]>([]);
   const [setups, setSetups] = useState<{name: string; description?: string}[]>([]);
