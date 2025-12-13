@@ -302,7 +302,39 @@ export const WeekdayAnalysisSection = ({
   const selectAll = () => setSelectedDays([true, true, true, true, true, true, true]);
   const clearAll = () => setSelectedDays([false, false, false, false, false, false, false]);
 
-  if (trades.length === 0) return null;
+  if (trades.length === 0) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        transition={{ delay: 0.4 }}
+      >
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                <Calendar className="w-6 h-6 text-cyan-400" />
+                Weekday Analysis
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">Analyze performance by day of week</p>
+            </div>
+            <Badge className="bg-cyan-500/30 text-cyan-300">0 trades</Badge>
+          </div>
+
+          <Card className="p-12 text-center border-dashed border-2 border-cyan-500/30 bg-cyan-500/5">
+            <Calendar className="w-16 h-16 mx-auto mb-4 text-cyan-400 opacity-50" />
+            <h3 className="text-xl font-semibold text-foreground mb-2">No Trades Yet</h3>
+            <p className="text-muted-foreground mb-4">
+              To view full weekday analytics, start by journaling your first trade
+            </p>
+            <p className="text-sm text-cyan-400 font-medium">
+              Track your best & worst trading days, win rates by weekday, and more
+            </p>
+          </Card>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <>
@@ -484,7 +516,7 @@ export const WeekdayAnalysisSection = ({
                     <input
                       type="number"
                       value={riskPerTradeInput}
-                      onChange={(e) => setRiskPerTradeInput(e.target.value ? Number(e.target.value) : 1)}
+                      onChange={(e) => setRiskPerTradeInput(e.target.value === '' ? '' : Number(e.target.value))}
                       placeholder="1"
                       min="0.1"
                       max="10"

@@ -340,18 +340,18 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const updateSettings = async (updates: Partial<AdminSettings>) => {
     try {
-      console.log('📝 Attempting to update settings with:', updates);
+      //console.log('📝 Attempting to update settings with:', updates);
       
       // Map frontend field names to database column names
       const dbUpdates: Record<string, any> = {};
       
       if (updates.propfirm_locked !== undefined) {
         dbUpdates.propfirm_locked = updates.propfirm_locked;
-        console.log('✏️ Setting propfirm_locked to:', updates.propfirm_locked);
+        //console.log('✏️ Setting propfirm_locked to:', updates.propfirm_locked);
       }
       if (updates.journal_locked !== undefined) {
         dbUpdates.journal_locked = updates.journal_locked;
-        console.log('✏️ Setting journal_locked to:', updates.journal_locked);
+        //console.log('✏️ Setting journal_locked to:', updates.journal_locked);
       }
       if (updates.performance_analytics_locked !== undefined) dbUpdates.performance_analytics_locked = updates.performance_analytics_locked;
       if (updates.propfirm_lock_type !== undefined) dbUpdates.propfirm_lock_type = updates.propfirm_lock_type;
@@ -364,7 +364,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       dbUpdates.updated_at = new Date().toISOString();
 
-      console.log('🗄️ Sending to database:', dbUpdates);
+      //console.log('🗄️ Sending to database:', dbUpdates);
 
       const { error: updateError, data: updateData } = await supabase
         .from('admin_settings')
@@ -376,7 +376,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.error('❌ Failed to update admin settings:', updateError);
         setError(`Failed to save settings: ${updateError.message}`);
       } else {
-        console.log('✅ Database update successful:', updateData);
+        //console.log('✅ Database update successful:', updateData);
       }
 
       // Update local state
@@ -466,7 +466,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const updateSocialLinks = async (links: SocialLink[]) => {
     try {
-      console.log('💾 Saving social links:', links);
+      //console.log('💾 Saving social links:', links);
       
       // Separate links by type
       const communityLinks = links.filter(l => l.link_type === 'community');
@@ -560,7 +560,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       // Fetch fresh data from database to update UI state
       await fetchSocialLinks();
-      console.log('✅ Social links saved successfully');
+      //console.log('✅ Social links saved successfully');
     } catch (error) {
       console.error('❌ Failed to update social links:', error);
       setError('Failed to save social links');

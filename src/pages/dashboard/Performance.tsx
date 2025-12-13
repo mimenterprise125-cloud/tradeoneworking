@@ -613,14 +613,6 @@ const Performance = () => {
       {/* DESKTOP: Show full performance analytics */}
       <div className="hidden lg:block space-y-6 sm:space-y-8">
       {/* PERFORMANCE OVERVIEW - KEY METRICS */}
-      {adminSettings?.performance_analytics_locked ? (
-        <UnderDevelopment 
-          title="Performance Analytics" 
-          description="Detailed analytics about your trading performance are locked."
-          type={adminSettings?.performance_lock_type} 
-        />
-      ) : (
-        <>
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
               <MetricCard title="Win Rate" value={`${metrics.winRate ?? 0}%`} hint={`${metrics.wins ?? 0}W / ${metrics.losses ?? 0}L`} icon={TrendingUp} trend={(metrics.winRate ?? 0) > 50 ? 'up' : 'down'} />
@@ -977,16 +969,28 @@ const Performance = () => {
           </motion.div>
 
       {/* WEEKDAY ANALYSIS SECTION */}
-      <WeekdayAnalysisSection 
-        trades={entries}
-        accountSize={accountSize}
-        dailyLossLimit={dailyLossLimit}
-        maxDD={maxDD}
-        selectedSetup={selectedSetup}
-        targetProfit={targetProfit}
-        availableSetups={availableSetups}
-      />
-        </>
+      {adminSettings?.performance_analytics_locked ? (
+        <UnderDevelopment 
+          title="Weekday Analytics" 
+          description="Unlock detailed insights into your trading patterns by day of the week."
+          type={adminSettings?.performance_lock_type}
+          features={[
+            'Best & Worst Trading Days',
+            'Win Rate by Weekday',
+            'Daily P&L Distribution',
+            'Funded Account Simulator',
+          ]}
+        />
+      ) : (
+        <WeekdayAnalysisSection 
+          trades={entries}
+          accountSize={accountSize}
+          dailyLossLimit={dailyLossLimit}
+          maxDD={maxDD}
+          selectedSetup={selectedSetup}
+          targetProfit={targetProfit}
+          availableSetups={availableSetups}
+        />
       )}
     </div>
     </div>

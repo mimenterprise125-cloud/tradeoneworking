@@ -6,11 +6,11 @@ CREATE TABLE IF NOT EXISTS public.user_sessions (
   ip_address TEXT,
   user_agent TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  CONSTRAINT user_sessions_user_id_key UNIQUE (user_id)
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Create index for fast lookups (user_id already has unique index via constraint)
+-- Create index for fast lookups
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON public.user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_last_activity ON public.user_sessions(last_activity DESC);
 
 -- Enable RLS
