@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Loader } from "lucide-react";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardProvider } from "./lib/DashboardContext";
 import { AuthProvider } from './lib/AuthProvider'
@@ -32,6 +34,66 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// Global Auth Loader - Intercepts all auth-related URLs before routing
+function AuthLoadingInterceptor({ children }: { children: React.ReactNode }) {
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  useEffect(() => {
+    // Check if URL contains auth-related parameters
+    const checkAuthParams = () => {
+      const hash = window.location.hash;
+      const search = window.location.search;
+      const fullUrl = hash + search;
+
+      // Check for Supabase auth tokens, verification links, or reset links
+      const hasAuthTokens = 
+        fullUrl.includes('access_token') ||
+        fullUrl.includes('refresh_token') ||
+        fullUrl.includes('token_type') ||
+        fullUrl.includes('type=recovery') ||
+        fullUrl.includes('type=signup') ||
+        fullUrl.includes('type=invite') ||
+        fullUrl.includes('type=magiclink') ||
+        fullUrl.includes('type=email_change') ||
+        search.includes('token=') ||
+        search.includes('code=') ||
+        hash.includes('#verify') ||
+        hash.includes('#confirm') ||
+        hash.includes('#reset') ||
+        hash.includes('/verify') ||
+        hash.includes('/confirm') ||
+        hash.includes('/reset');
+
+      if (hasAuthTokens) {
+        setIsAuthLoading(true);
+        
+        // Redirect to auth callback after a brief moment
+        setTimeout(() => {
+          window.location.hash = '#/auth/callback';
+          setTimeout(() => setIsAuthLoading(false), 500);
+        }, 100);
+      }
+    };
+
+    checkAuthParams();
+  }, []);
+
+  if (isAuthLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-cyan-50 to-blue-50">
+        <div className="text-center bg-white p-8 rounded-2xl shadow-xl max-w-md">
+          <Loader className="w-16 h-16 animate-spin text-cyan-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-semibold text-gray-800 mb-2">Verifying Email...</h2>
+          <p className="text-gray-600">Please wait while we confirm your account</p>
+          <p className="text-sm text-gray-500 mt-2">This will only take a moment</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -40,6 +102,7 @@ const App = () => (
       <AdminProvider>
       <Toaster />
       <Sonner />
+      <AuthLoadingInterceptor>
       <Router>
       <DashboardProvider>
         <Routes>
@@ -79,6 +142,7 @@ const App = () => (
         </Routes>
       </DashboardProvider>
       </Router>
+      </AuthLoadingInterceptor>
       </AdminProvider>
       </SessionTracker>
   </AuthProvider>
