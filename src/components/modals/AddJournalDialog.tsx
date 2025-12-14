@@ -1186,6 +1186,7 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                 step="0.01" 
                 value={formData.entry_price} 
                 onChange={(e) => setFormData({ ...formData, entry_price: e.target.value })} 
+                onWheel={preventNumberScroll}
                 placeholder="0.00"
                 className={`h-10 px-3 text-sm bg-background/50 text-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition-all ${
                   errors.entry_price
