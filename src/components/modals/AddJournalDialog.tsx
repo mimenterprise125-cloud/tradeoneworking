@@ -102,23 +102,31 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
             setSymbols(Array.from(seen.values()));
         }
 
-        const { data: stData, error: stErr } = await supabase
-          .from("setups")
-          .select("name, description")
-          .order("created_at", { ascending: false })
-          .limit(1000);
-        if (!stErr && stData) {
-          const uniq: {name: string; description?: string}[] = [];
-          const seenSet = new Set<string>();
-          for (const r of stData) {
-            const name = (r.name || "").trim();
-            const key = name.toLowerCase();
-            if (name && !seenSet.has(key)) { 
-              seenSet.add(key); 
-              uniq.push({ name, description: r.description || undefined }); 
+        // load only setups that belong to the authenticated user
+        const user = (await supabase.auth.getUser()).data?.user;
+        if (user && user.id) {
+          const { data: stData, error: stErr } = await supabase
+            .from("setups")
+            .select("name, description")
+            .eq('user_id', user.id)
+            .order("created_at", { ascending: false })
+            .limit(1000);
+          if (!stErr && stData) {
+            const uniq: {name: string; description?: string}[] = [];
+            const seenSet = new Set<string>();
+            for (const r of stData) {
+              const name = (r.name || "").trim();
+              const key = name.toLowerCase();
+              if (name && !seenSet.has(key)) { 
+                seenSet.add(key); 
+                uniq.push({ name, description: r.description || undefined }); 
+              }
             }
+            setSetups(uniq);
           }
-          setSetups(uniq);
+        } else {
+          // not authenticated - no user-specific setups
+          setSetups([]);
         }
         // load user's trading accounts for account-based filtering
         try {
