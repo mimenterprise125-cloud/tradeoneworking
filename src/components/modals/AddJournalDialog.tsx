@@ -79,6 +79,12 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
   const [newSetupInput, setNewSetupInput] = useState("");
   const [newSetupDescription, setNewSetupDescription] = useState("");
 
+  // Prevent accidental value change on number inputs when scrolling over them
+  const preventNumberScroll = (e: React.WheelEvent<HTMLInputElement>) => {
+    // Remove focus so the wheel doesn't change the number value; allows page scroll
+    try { (e.target as HTMLInputElement).blur(); } catch (err) {}
+  };
+
   useEffect(() => {
     if (!open) return;
     // load saved symbols and setups
@@ -1220,6 +1226,7 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                     step="0.01" 
                     value={formData.stop_loss_price} 
                     onChange={(e) => setFormData({ ...formData, stop_loss_price: e.target.value })} 
+                    onWheel={preventNumberScroll}
                     disabled={formData.result === "MANUAL"} 
                     placeholder="e.g., 4640"
                   />
@@ -1245,6 +1252,7 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                     step="0.01" 
                     value={formData.target_price} 
                     onChange={(e) => setFormData({ ...formData, target_price: e.target.value })} 
+                    onWheel={preventNumberScroll}
                     disabled={formData.result === "MANUAL"}
                     placeholder="e.g., 4670"
                   />
@@ -1335,6 +1343,7 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                     }} 
                     disabled={formData.result === "MANUAL"} 
                     placeholder="Your risk in $"
+                    onWheel={preventNumberScroll}
                   />
                 </div>
                 <div className="flex flex-col space-y-2">
@@ -1352,6 +1361,7 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                     step="0.01" 
                     value={formData.profit_target} 
                     onChange={(e) => setFormData({ ...formData, profit_target: e.target.value })} 
+                    onWheel={preventNumberScroll}
                     disabled={formData.result === "MANUAL"}
                     placeholder="Your profit target in $"
                   />
@@ -1440,6 +1450,7 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                     step="0.01"
                     value={formData.manualAmount} 
                     onChange={(e) => setFormData({ ...formData, manualAmount: e.target.value })} 
+                    onWheel={preventNumberScroll}
                     placeholder="Enter amount..."
                     className={`h-10 px-3 text-sm bg-background/50 rounded-lg focus:outline-none focus:ring-2 transition-all ${
                       errors.manual

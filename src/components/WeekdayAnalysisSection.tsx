@@ -69,6 +69,11 @@ export const WeekdayAnalysisSection = ({
   const [riskPerTradeInput, setRiskPerTradeInput] = useState<number | string>(1); // Default 1%
   const [calculatorSessionFilter, setCalculatorSessionFilter] = useState<string>('All Sessions'); // Session filter for calculator
 
+  // Prevent accidental value changes on numeric inputs when scrolling over them
+  const preventNumberScroll = (e: React.WheelEvent<HTMLInputElement>) => {
+    try { (e.target as HTMLInputElement).blur(); } catch (err) {}
+  };
+
   const getDayOfWeek = (dateString: string) => {
     const date = new Date(dateString);
     return date.getDay();
@@ -433,6 +438,7 @@ export const WeekdayAnalysisSection = ({
                       type="number"
                       value={dailyLossLimit}
                       onChange={(e) => setDailyLossLimit(e.target.value ? Number(e.target.value) : 5)}
+                      onWheel={preventNumberScroll}
                       placeholder="5"
                       className="flex-1 px-3 py-2 rounded-lg border border-emerald-500/40 bg-background/40 text-foreground placeholder-muted-foreground text-sm text-center focus:outline-none focus:border-emerald-500/70 focus:ring-1 focus:ring-emerald-500/50 transition-all"
                     />
@@ -454,6 +460,7 @@ export const WeekdayAnalysisSection = ({
                       type="number"
                       value={maxDD}
                       onChange={(e) => setMaxDD(e.target.value ? Number(e.target.value) : 10)}
+                      onWheel={preventNumberScroll}
                       placeholder="10"
                       className="flex-1 px-3 py-2 rounded-lg border border-rose-500/40 bg-background/40 text-foreground placeholder-muted-foreground text-sm text-center focus:outline-none focus:border-rose-500/70 focus:ring-1 focus:ring-rose-500/50 transition-all"
                     />
@@ -475,6 +482,7 @@ export const WeekdayAnalysisSection = ({
                       type="number"
                       value={targetProfit}
                       onChange={(e) => setTargetProfit(e.target.value ? Number(e.target.value) : 10)}
+                      onWheel={preventNumberScroll}
                       placeholder="10"
                       className="flex-1 px-3 py-2 rounded-lg border border-cyan-500/40 bg-background/40 text-foreground placeholder-muted-foreground text-sm text-center focus:outline-none focus:border-cyan-500/70 focus:ring-1 focus:ring-cyan-500/50 transition-all"
                     />
@@ -517,6 +525,7 @@ export const WeekdayAnalysisSection = ({
                       type="number"
                       value={riskPerTradeInput}
                       onChange={(e) => setRiskPerTradeInput(e.target.value === '' ? '' : Number(e.target.value))}
+                      onWheel={preventNumberScroll}
                       placeholder="1"
                       min="0.1"
                       max="10"

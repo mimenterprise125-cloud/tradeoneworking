@@ -32,6 +32,11 @@ export const EditJournalDialog = ({ open, onOpenChange, entry }: EditJournalDial
   const [symbolSearchInput, setSymbolSearchInput] = useState("");
   const [showSymbolDropdown, setShowSymbolDropdown] = useState(false);
 
+  // Prevent accidental number input changes when scrolling over fields
+  const preventNumberScroll = (e: React.WheelEvent<HTMLInputElement>) => {
+    try { (e.target as HTMLInputElement).blur(); } catch (err) {}
+  };
+
   useEffect(() => {
     if (entry) {
       setSymbolSearchInput(entry.symbol ?? '');
@@ -375,7 +380,8 @@ export const EditJournalDialog = ({ open, onOpenChange, entry }: EditJournalDial
                       type="number"
                       step="0.01"
                       value={form.manualAmount || 0}
-                      onChange={(e) => setForm((s: any) => ({ ...s, manualAmount: e.target.value }))}
+                          onChange={(e) => setForm((s: any) => ({ ...s, manualAmount: e.target.value }))}
+                          onWheel={preventNumberScroll}
                       placeholder="Enter amount"
                     />
                   </div>
@@ -392,6 +398,7 @@ export const EditJournalDialog = ({ open, onOpenChange, entry }: EditJournalDial
                   step="0.01"
                   value={form.stop_loss_points || 0}
                   onChange={(e) => setForm((s: any) => ({ ...s, stop_loss_points: e.target.value }))}
+                  onWheel={preventNumberScroll}
                 />
               </div>
               <div className="space-y-2">
@@ -400,7 +407,8 @@ export const EditJournalDialog = ({ open, onOpenChange, entry }: EditJournalDial
                   type="number"
                   step="0.01"
                   value={form.target_points || 0}
-                  onChange={(e) => setForm((s: any) => ({ ...s, target_points: e.target.value }))}
+                onChange={(e) => setForm((s: any) => ({ ...s, target_points: e.target.value }))}
+                onWheel={preventNumberScroll}
                 />
               </div>
             </div>
@@ -414,6 +422,7 @@ export const EditJournalDialog = ({ open, onOpenChange, entry }: EditJournalDial
                   step="0.01"
                   value={form.risk_amount || 0}
                   onChange={(e) => setForm((s: any) => ({ ...s, risk_amount: e.target.value }))}
+                  onWheel={preventNumberScroll}
                 />
               </div>
               <div className="space-y-2">
@@ -423,6 +432,7 @@ export const EditJournalDialog = ({ open, onOpenChange, entry }: EditJournalDial
                   step="0.01"
                   value={form.profit_target || 0}
                   onChange={(e) => setForm((s: any) => ({ ...s, profit_target: e.target.value }))}
+                  onWheel={preventNumberScroll}
                 />
               </div>
             </div>
@@ -434,6 +444,7 @@ export const EditJournalDialog = ({ open, onOpenChange, entry }: EditJournalDial
                 type="number"
                 value={form.duration_minutes || 0}
                 onChange={(e) => setForm((s: any) => ({ ...s, duration_minutes: e.target.value }))}
+                onWheel={preventNumberScroll}
               />
             </div>
 
