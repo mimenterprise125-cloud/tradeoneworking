@@ -752,7 +752,17 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                   mode="single" 
                   selected={selectedDate} 
                   onSelect={(d:any) => {
+                    // Update selected date and (for convenience) apply immediately using current selectedTime
                     setSelectedDate(d || undefined);
+                    try {
+                      if (d) {
+                        const sd: Date = d;
+                        const dateStr = `${sd.getFullYear()}-${String(sd.getMonth()+1).padStart(2,'0')}-${String(sd.getDate()).padStart(2,'0')}`;
+                        const t = selectedTime || '00:00';
+                        onChange(`${dateStr}T${t}`);
+                        setOpen(false);
+                      }
+                    } catch (e) {}
                   }}
                   className="rounded-lg border border-border/30"
                 />
