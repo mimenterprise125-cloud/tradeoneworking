@@ -9,8 +9,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -26,16 +24,6 @@ interface AddJournalDialogProps {
   onSaved?: () => void;
 }
 
-const nowLocal = () => {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${y}-${m}-${dd}T${hh}:${mm}`; // YYYY-MM-DDTHH:MM (local)
-}
-
 export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDialogProps) => {
   const { toast } = useToast();
   
@@ -43,18 +31,10 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
   useModalBackButton(open, () => onOpenChange(false));
   const [formData, setFormData] = useState<any>({
   symbol: "",
-  entry_at: nowLocal(),
-  exit_at: nowLocal(),
     session: "No Session",
     setup_name: "",
-    setup_rating: "B",
+    setup_rating: "",
     execution_type: "Market",  // Default: Market execution
-    entry_price: "",
-    stop_loss_price: "",
-    target_price: "",
-    // points-based optional inputs
-    stop_loss_points: "",
-    target_points: "",
     // money management
     risk_amount: "",
     profit_target: "",
@@ -69,6 +49,8 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
     manualOutcome: "Profit",
     manualAmount: "",
     notes: "",
+    // trade date - defaults to today
+    trade_date: new Date().toISOString().split('T')[0],
   });
   const [accounts, setAccounts] = useState<any[]>([]);
   const [symbols, setSymbols] = useState<string[]>([]);
@@ -201,14 +183,10 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
   useEffect(() => {
     const errs: Record<string,string> = {};
     
-    // === REQUIRED FIELDS (All except entry_at, exit_at) ===
+    // === REQUIRED FIELDS ===
     
     if (!formData.symbol || formData.symbol.trim() === '') {
       errs.symbol = 'Symbol is required *';
-    }
-    
-    if (!formData.entry_price || Number(formData.entry_price) === 0) {
-      errs.entry_price = 'Entry price is required *';
     }
     
     if (!formData.direction || formData.direction.trim() === '') {
@@ -223,9 +201,7 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
       errs.setup_name = 'Setup name is required *';
     }
     
-    if (!formData.setup_rating || formData.setup_rating.trim() === '') {
-      errs.setup_rating = 'Setup rating (A-F) is required *';
-    }
+    // setup_rating is now optional
     
     // execution_type has default value "Market", so it's not strictly required
     // but we can still validate if it's provided
@@ -237,22 +213,7 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
       errs.result = 'Result type is required *';
     }
 
-    // === OPTIONAL FIELDS (entry_at, exit_at) ===
-    // These are optional, but if both provided, validate they're in order
     
-    // Cross-field validation: timestamps (only if both provided)
-    try {
-      if (formData.entry_at && formData.exit_at) {
-        const entry = new Date(formData.entry_at);
-        const exit = new Date(formData.exit_at);
-        if (!isNaN(entry.getTime()) && !isNaN(exit.getTime())) {
-          if (exit <= entry) {
-            errs.time = 'Exit time must be after entry time';
-          }
-        }
-      }
-    } catch (e) {}
-
     // === RESULT-DEPENDENT REQUIRED FIELDS ===
     
     if (formData.result === 'MANUAL') {
@@ -261,20 +222,6 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
       }
       if (!formData.manualOutcome || formData.manualOutcome.trim() === '') {
         errs.manualOutcome = 'Manual outcome (Profit/Loss) is required *';
-      }
-    } else if (formData.result === 'TP') {
-      if (!formData.target_price || Number(formData.target_price) === 0) {
-        errs.target = 'Target price is required';
-      }
-      if (!formData.profit_target || Number(formData.profit_target) === 0) {
-        errs.profit_target = 'Profit target amount is required';
-      }
-    } else if (formData.result === 'SL') {
-      if (!formData.stop_loss_price || Number(formData.stop_loss_price) === 0) {
-        errs.stop_loss = 'Stop loss price is required';
-      }
-      if (!formData.risk_amount || Number(formData.risk_amount) === 0) {
-        errs.risk_amount = 'Risk amount is required';
       }
     }
 
@@ -291,32 +238,6 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
       }
       if (tpPoints < 0) {
         errs.target_points = 'Target points must be positive';
-      }
-    } catch (e) {}
-
-    // === PRICE DIRECTION VALIDATION ===
-    try {
-      const entry = parseFloat(formData.entry_price || '0');
-      const sl = parseFloat(formData.stop_loss_price || '0');
-      const tp = parseFloat(formData.target_price || '0');
-      if (formData.direction === 'Buy') {
-        if (formData.stop_loss_price && !isNaN(entry) && !isNaN(sl) && !(sl < entry)) {
-          errs.stop_loss_price = 'For Buy direction the stop loss price must be less than the entry price';
-          errs.stop_loss = errs.stop_loss_price;
-        }
-        if (formData.target_price && !isNaN(entry) && !isNaN(tp) && !(tp > entry)) {
-          errs.target_price = 'For Buy direction the target price must be greater than the entry price';
-          errs.target = errs.target_price;
-        }
-      } else if (formData.direction === 'Sell') {
-        if (formData.stop_loss_price && !isNaN(entry) && !isNaN(sl) && !(sl > entry)) {
-          errs.stop_loss_price = 'For Sell direction the stop loss price must be greater than the entry price';
-          errs.stop_loss = errs.stop_loss_price;
-        }
-        if (formData.target_price && !isNaN(entry) && !isNaN(tp) && !(tp < entry)) {
-          errs.target_price = 'For Sell direction the target price must be less than the entry price';
-          errs.target = errs.target_price;
-        }
       }
     } catch (e) {}
 
@@ -552,13 +473,10 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
     loss_reason: formData.loss_reason || null,
         duration_minutes: duration_minutes,
         notes: formData.notes || null,
+        trade_date: formData.trade_date || new Date().toISOString().split('T')[0],
         screenshot_urls: screenshotUrls,
         created_at: new Date().toISOString(),
       };
-
-  // Include optional timestamp fields if provided (entry_at, exit_at may not exist in all schemas)
-  if (formData.entry_at) payload.entry_at = new Date(formData.entry_at).toISOString();
-  if (formData.exit_at) payload.exit_at = new Date(formData.exit_at).toISOString();
 
   // include user_id since we now require authentication
   payload.user_id = userId;
@@ -600,266 +518,9 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
     }
   };
 
-  // compute duration for UI
-  const getDurationMinutes = () => {
-    try {
-      if (formData.entry_at && formData.exit_at) {
-        const start = new Date(formData.entry_at);
-        const end = new Date(formData.exit_at);
-        const diff = (end.getTime() - start.getTime()) / 60000;
-        return Number.isFinite(diff) ? Math.max(0, Math.round(diff)) : null;
-      }
-    } catch (e) {}
-    return null;
-  };
-
-  const durationMinutes = getDurationMinutes();
-  const durationStr = durationMinutes == null ? "" : (durationMinutes >= 60 ? `${Math.floor(durationMinutes/60)}h ${durationMinutes%60}m (${durationMinutes} min)` : `${durationMinutes} min`);
-
-  // helpers to split/merge ISO datetime for separate date/time inputs
-  // Return local YYYY-MM-DD for a given ISO or local datetime string
-  const isoToDate = (iso?: string) => {
-    try {
-      if (!iso) return "";
-      const d = new Date(iso);
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return `${y}-${m}-${dd}`;
-    } catch (e) { return "" }
-  }
-  const isoToTime = (iso?: string) => {
-    try {
-      if (!iso) return "";
-      const d = new Date(iso);
-      const hh = String(d.getHours()).padStart(2,'0');
-      const mm = String(d.getMinutes()).padStart(2,'0');
-      return `${hh}:${mm}`;
-    } catch (e) { return "" }
-  }
-
-  const setEntryDate = (dateStr: string) => {
-    const time = isoToTime(formData.entry_at) || '00:00';
-    setFormData((f:any)=> ({...f, entry_at: dateStr ? `${dateStr}T${time}` : ''}));
-  }
-  const setEntryTime = (timeStr: string) => {
-    const date = isoToDate(formData.entry_at) || (() => {
-      const d = new Date();
-      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    })();
-    setFormData((f:any)=> ({...f, entry_at: timeStr ? `${date}T${timeStr}` : ''}));
-  }
-
-  const setExitDate = (dateStr: string) => {
-    const time = isoToTime(formData.exit_at) || '00:00';
-    setFormData((f:any)=> ({...f, exit_at: dateStr ? `${dateStr}T${time}` : ''}));
-  }
-  const setExitTime = (timeStr: string) => {
-    const date = isoToDate(formData.exit_at) || (() => {
-      const d = new Date();
-      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    })();
-    setFormData((f:any)=> ({...f, exit_at: timeStr ? `${date}T${timeStr}` : ''}));
-  }
-
-  // Custom DateTime picker using Popover + Calendar + time list
-  const DateTimePicker = ({ value, onChange, placeholder, hasError }: { value?: string; onChange: (iso:string) => void; placeholder?: string; hasError?: boolean }) => {
-    const [open, setOpen] = useState(false);
-    const [selectedDate, setSelectedDate] = useState<Date | undefined>(value ? new Date(value) : undefined);
-    const [selectedTime, setSelectedTime] = useState<string>(value ? isoToTime(value) : "");
-    const [view, setView] = useState<'date' | 'time'>('date'); // Toggle between date and time view for mobile
-
-    useEffect(() => {
-      setSelectedDate(value ? new Date(value) : undefined);
-      setSelectedTime(value ? isoToTime(value) : "");
-      if (open) setView('date'); // Reset to date view when modal opens
-    }, [value, open]);
-
-    // 12-hour time format with AM/PM
-    const [hour12, setHour12] = useState<string>('12');
-    const [minuteSel, setMinuteSel] = useState<string>('00');
-    const [meridiem, setMeridiem] = useState<'AM'|'PM'>('AM');
-
-    const parse24To12 = (t24: string) => {
-      if (!t24) return { h12: '12', m: '00', mer: 'AM' as 'AM'|'PM' };
-      const [hh, mm] = t24.split(':');
-      let h = Number(hh);
-      const mer = h >= 12 ? 'PM' : 'AM';
-      let h12 = h % 12;
-      if (h12 === 0) h12 = 12;
-      return { h12: String(h12), m: mm || '00', mer };
-    }
-    const to24 = (h12: string, mm: string, mer: 'AM'|'PM') => {
-      let h = Number(h12);
-      if (mer === 'AM' && h === 12) h = 0;
-      if (mer === 'PM' && h < 12) h = h + 12;
-      return `${String(h).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
-    }
-
-    useEffect(()=>{
-      const t = selectedTime || '00:00';
-      const parsed = parse24To12(t);
-      setHour12(parsed.h12);
-      setMinuteSel(parsed.m);
-      setMeridiem(parsed.mer as 'AM'|'PM');
-    }, [selectedTime]);
-
-    const applyDateTime = () => {
-      if (!selectedDate) { 
-        toast({ title: 'No date selected', description: 'Please pick a date first', variant: 'destructive' }); 
-        return; 
-      }
-      const okH = /^([1-9]|1[0-2])$/.test(hour12);
-      const okM = /^([0-5]\d)$/.test(minuteSel);
-      if (!okH || !okM) { 
-        toast({ title: 'Invalid time', description: 'Choose hour and minute from the dropdowns', variant: 'destructive' }); 
-        return; 
-      }
-      const t24 = to24(hour12, minuteSel, meridiem);
-      // use local date parts (avoid toISOString which converts to UTC)
-      const sd = selectedDate;
-      const dateStr = `${sd.getFullYear()}-${String(sd.getMonth()+1).padStart(2,'0')}-${String(sd.getDate()).padStart(2,'0')}`;
-      onChange(`${dateStr}T${t24}`);
-      setOpen(false);
-    }
-
-    const goBack = () => {
-      setView('date');
-    }
-
-    // build minute options (00..59)
-    const minuteOptions = Array.from({length:60}).map((_,i) => String(i).padStart(2,'0'));
-    const hourOptions = Array.from({length:12}).map((_,i) => String(i+1));
-
-    return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <button type="button" className={`w-full text-left h-10 px-3 text-sm bg-background/50 text-foreground rounded-lg focus:outline-none focus:ring-2 transition-all hover:border-accent/50 ${
-            hasError 
-              ? 'border-2 border-rose-500 focus:ring-rose-400/50' 
-              : 'border border-border/50 focus:ring-accent focus:border-accent'
-          }`}>
-            {value ? `${isoToDate(value)} ${isoToTime(value)}` : (placeholder || 'Select date & time')}
-          </button>
-        </PopoverTrigger>
-        <PopoverContent side="bottom" align="center" className="w-auto p-4 z-50">
-          <div className="flex flex-col gap-4" key={`datetime-view-${view}`}>
-            {/* Date Selection - Show on date view */}
-            {view === 'date' && (
-              <div className="flex flex-col space-y-3">
-                <div className="text-sm font-semibold text-accent">📅 Select Date</div>
-                <Calendar 
-                  mode="single" 
-                  selected={selectedDate} 
-                  onSelect={(d:any) => {
-                    // Update selected date and (for convenience) apply immediately using current selectedTime
-                    setSelectedDate(d || undefined);
-                    try {
-                      if (d) {
-                        const sd: Date = d;
-                        const dateStr = `${sd.getFullYear()}-${String(sd.getMonth()+1).padStart(2,'0')}-${String(sd.getDate()).padStart(2,'0')}`;
-                        const t = selectedTime || '00:00';
-                        onChange(`${dateStr}T${t}`);
-                        setOpen(false);
-                      }
-                    } catch (e) {}
-                  }}
-                  className="rounded-lg border border-border/30"
-                />
-              </div>
-            )}
-
-            {/* Time Selection - Show on time view */}
-            {view === 'time' && (
-              <div className="w-full flex flex-col space-y-3">
-                <div className="text-sm font-semibold text-accent">⏰ Select Time</div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="flex flex-col space-y-1">
-                    <label className="text-xs font-semibold text-muted-foreground">Hour</label>
-                    <select 
-                      value={hour12} 
-                      onChange={(e)=> setHour12(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'ArrowUp') { e.preventDefault(); const idx = hourOptions.indexOf(hour12); if (idx > 0) setHour12(hourOptions[idx-1]); }
-                        if (e.key === 'ArrowDown') { e.preventDefault(); const idx = hourOptions.indexOf(hour12); if (idx < hourOptions.length-1) setHour12(hourOptions[idx+1]); }
-                      }}
-                      className="w-full h-10 px-2 text-sm rounded-lg border-2 border-border/40 bg-background text-foreground font-medium focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all hover:border-border/60 cursor-pointer"
-                    >
-                      {hourOptions.map(h => <option key={h} value={h}>{h}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex flex-col space-y-1">
-                    <label className="text-xs font-semibold text-muted-foreground">Min</label>
-                    <select 
-                      value={minuteSel} 
-                      onChange={(e)=> setMinuteSel(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'ArrowUp') { e.preventDefault(); const idx = minuteOptions.indexOf(minuteSel); if (idx > 0) setMinuteSel(minuteOptions[idx-1]); }
-                        if (e.key === 'ArrowDown') { e.preventDefault(); const idx = minuteOptions.indexOf(minuteSel); if (idx < minuteOptions.length-1) setMinuteSel(minuteOptions[idx+1]); }
-                      }}
-                      className="w-full h-10 px-2 text-sm rounded-lg border-2 border-border/40 bg-background text-foreground font-medium focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all hover:border-border/60 cursor-pointer"
-                    >
-                      {minuteOptions.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex flex-col space-y-1">
-                    <label className="text-xs font-semibold text-muted-foreground">Period</label>
-                    <select 
-                      value={meridiem} 
-                      onChange={(e)=> setMeridiem(e.target.value as 'AM'|'PM')}
-                      className="w-full h-10 px-2 text-sm rounded-lg border-2 border-border/40 bg-background text-foreground font-medium focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all hover:border-border/60 cursor-pointer"
-                    >
-                      <option value="AM">AM</option>
-                      <option value="PM">PM</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons - Apply/Back style */}
-            <div className="flex gap-2 pt-2 justify-between flex-wrap">
-              {view === 'time' && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={goBack} 
-                  className="text-xs font-medium border-border/50 hover:bg-background/80"
-                >
-                  ← Back
-                </Button>
-              )}
-              {view === 'date' && (
-                <div className="w-full" />
-              )}
-              {view === 'date' && selectedDate && (
-                <Button 
-                  size="sm" 
-                  onClick={() => setView('time')} 
-                  className="bg-accent hover:bg-accent/90 text-xs font-medium whitespace-nowrap text-white"
-                >
-                  Next: Time →
-                </Button>
-              )}
-              {view === 'time' && (
-                <Button 
-                  size="sm" 
-                  onClick={applyDateTime} 
-                  className="bg-emerald-600 hover:bg-emerald-700 text-xs font-medium whitespace-nowrap text-white"
-                >
-                  Apply ✓
-                </Button>
-              )}
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
-    );
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-  <DialogContent className="glass-strong w-full max-w-3xl sm:max-w-2xl md:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-hidden border border-border/40 p-0 flex flex-col">
+  <DialogContent className="glass-strong w-full max-w-4xl sm:max-w-3xl md:max-w-2xl lg:max-w-4xl max-h-[95vh] overflow-hidden border border-border/40 p-0 flex flex-col bg-gradient-to-br from-background via-background to-background/95 shadow-2xl rounded-2xl">
         <style>{`.journal-dt input[type="date"], .journal-dt input[type="time"]{ -webkit-appearance: none; appearance: none; }
 .journal-dt input::-webkit-calendar-picker-indicator{ filter: grayscale(40%) brightness(0.6); opacity:0.9 }
 .journal-dt .picker-input{ z-index:50 }
@@ -867,18 +528,21 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 `}</style>
-        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-2 border-b border-border/30 flex-shrink-0">
-          <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-teal-400 bg-clip-text text-transparent">Add Trade Entry</DialogTitle>
-          <DialogDescription className="text-sm">Log your trade details to build your trading journal</DialogDescription>
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/30 flex-shrink-0 bg-gradient-to-r from-blue-500/5 via-teal-500/5 to-background">
+          <DialogTitle className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent">📈 Add Trade Entry</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground mt-2">Log your trade details with precision to build your professional trading journal</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6 flex flex-col flex-1 overflow-hidden">
-          <div className="overflow-y-auto flex-1 hide-scrollbar px-4 sm:px-6 py-4 space-y-6">
-            <div className="max-w-2xl mx-auto w-full">
+        <form onSubmit={handleSubmit} className="space-y-0 flex flex-col flex-1 overflow-hidden">
+          <div className="overflow-y-auto flex-1 hide-scrollbar px-6 py-6 space-y-6">
+            <div className="w-full">
           
           {/* Section 1: Trade Basics - Symmetric Layout */}
-          <div className="bg-background/40 rounded-xl p-5 border border-border/30 space-y-4">
-            <div className="text-sm font-semibold text-accent mb-3"> Trade Setup</div>
+          <div className="bg-gradient-to-br from-background/60 to-background/40 rounded-2xl p-6 border border-border/40 shadow-lg hover:shadow-xl transition-shadow space-y-5">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🎯</span>
+              <div className="text-sm font-bold text-accent uppercase tracking-wider">Trade Setup</div>
+            </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Symbol with Save Button */}
@@ -997,44 +661,29 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                   })()}
                 </div>
               </div>
-
-              {/* Entry Time */}
-              <div className="flex flex-col space-y-2">
-                <div className="flex items-center gap-1">
-                  <Label className="text-xs font-semibold text-muted-foreground">Entry Time</Label>
-                  {errors.entry_at && <span className="text-rose-400 text-xs ml-auto">⚠️</span>}
-                </div>
-                <DateTimePicker value={formData.entry_at} onChange={(iso)=> setFormData((f:any)=>({...f, entry_at: iso}))} placeholder="Entry" hasError={!!errors.entry_at} />
-                {errors.entry_at && <div className="text-rose-400 text-xs flex items-center gap-1"><span>⚠️</span><span>{errors.entry_at}</span></div>}
-              </div>
-
-              {/* Exit Time */}
-              <div className="flex flex-col space-y-2">
-                <div className="flex items-center gap-1">
-                  <Label className="text-xs font-semibold text-muted-foreground">Exit Time</Label>
-                  {errors.exit_at && <span className="text-rose-400 text-xs ml-auto">⚠️</span>}
-                </div>
-                <DateTimePicker value={formData.exit_at} onChange={(iso)=> setFormData((f:any)=>({...f, exit_at: iso}))} placeholder="Exit" hasError={!!errors.exit_at} />
-                {errors.exit_at && <div className="text-rose-400 text-xs flex items-center gap-1"><span>⚠️</span><span>{errors.exit_at}</span></div>}
-                {errors.time && <div className="text-rose-400 text-xs flex items-center gap-1"><span>⚠️</span><span>{errors.time}</span></div>}
-              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Session */}
               <div className="flex flex-col space-y-2">
                 <div className="flex items-center gap-1">
-                  <Label className="text-xs font-semibold text-muted-foreground">Direction</Label>
+                  <Label className="text-xs font-semibold text-muted-foreground">Session</Label>
                   <span className="text-rose-500 font-bold">*</span>
-                  {errors.direction && <span className="text-rose-400 text-xs">⚠️</span>}
+                  {errors.session && <span className="text-rose-400 text-xs ml-auto">⚠️</span>}
                 </div>
                 <div className="relative">
                   <select className={`w-full h-11 px-4 pr-10 text-sm font-medium bg-background/50 text-foreground rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-all cursor-pointer ${
-                    errors.direction
+                    errors.session
                       ? 'border-2 border-rose-500'
                       : 'border border-border/50 hover:border-accent/40'
-                  }`} value={formData.direction} onChange={(e) => setFormData({ ...formData, direction: e.target.value })}>
-                    <option value="Buy">Buy</option>
-                    <option value="Sell">Sell</option>
+                  }`} value={formData.session} onChange={(e) => setFormData({ ...formData, session: e.target.value })}>
+                    <option value="No Session">No Session</option>
+                    <option value="London">London</option>
+                    <option value="Asia">Asia</option>
+                    <option value="New York">New York</option>
+                    <option value="London Killzone">London Killzone</option>
+                    <option value="Asia Killzone">Asia Killzone</option>
+                    <option value="New York Killzone">New York Killzone</option>
                   </select>
                   <div className="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1042,69 +691,42 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                     </svg>
                   </div>
                 </div>
-                {errors.direction && (
-                  <div className="flex items-center gap-1 text-rose-400 text-xs">
-                    <span>⚠️</span>
-                    <span>{errors.direction}</span>
-                  </div>
-                )}
               </div>
-              <div className="col-span-2 flex flex-col space-y-2">
-                <Label className="text-xs font-semibold text-muted-foreground">Duration <span className="text-accent text-xs">(Auto-calculated)</span></Label>
-                {durationMinutes ? (
-                  <div className="h-10 flex items-center px-3 rounded-lg bg-gradient-to-r from-accent/15 to-accent/10 border border-accent/40 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-accent/5 to-transparent opacity-50"></div>
-                    <span className="text-sm font-semibold text-accent relative z-10">{Math.floor(durationMinutes/60)}h {durationMinutes%60}m</span>
-                  </div>
-                ) : (
-                  <div className="h-10 flex items-center px-3 rounded-lg bg-background/50 border border-border/30 border-dashed text-muted-foreground text-xs">
-                    ⏳ Set entry & exit time to calculate
-                  </div>
-                )}
+
+              {/* Direction (Buy/Sell) */}
+              <div className="flex flex-col space-y-2">
+                <div className="flex items-center gap-1">
+                  <Label className="text-xs font-semibold text-muted-foreground">Direction</Label>
+                  <span className="text-rose-500 font-bold">*</span>
+                  {errors.direction && <span className="text-rose-400 text-xs ml-auto">⚠️</span>}
+                </div>
+                <div className="flex gap-2">
+                  {['Buy', 'Sell'].map((dir) => (
+                    <button
+                      key={dir}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, direction: dir })}
+                      className={`flex-1 h-11 rounded-lg font-semibold text-sm transition-all ${
+                        formData.direction === dir
+                          ? dir === 'Buy' 
+                            ? 'bg-emerald-500/40 border border-emerald-400/50 text-emerald-400'
+                            : 'bg-rose-500/40 border border-rose-400/50 text-rose-400'
+                          : 'bg-background/50 border border-border/50 text-muted-foreground hover:border-accent/30'
+                      }`}
+                    >
+                      {dir === 'Buy' ? '🟢' : '🔴'} {dir}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Setup Name */}
             <div className="flex flex-col space-y-2">
-              <div className="flex items-center gap-1">
-                <Label className="text-xs font-semibold text-muted-foreground">Session</Label>
-                <span className="text-rose-500 font-bold">*</span>
-                {errors.session && <span className="text-rose-400 text-xs">⚠️</span>}
-              </div>
-              <div className="relative">
-                <select className={`w-full h-11 px-4 pr-10 text-sm font-medium bg-background/50 text-foreground rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-all cursor-pointer ${
-                  errors.session
-                    ? 'border-2 border-rose-500'
-                    : 'border border-border/50 hover:border-accent/40'
-                }`} value={formData.session} onChange={(e) => setFormData({ ...formData, session: e.target.value })}>
-                  <option value="No Session">No Session</option>
-                  <option value="London">London</option>
-                  <option value="Asia">Asia</option>
-                  <option value="New York">New York</option>
-                  <option value="London Killzone">London Killzone</option>
-                  <option value="Asia Killzone">Asia Killzone</option>
-                  <option value="New York Killzone">New York Killzone</option>
-                </select>
-                <div className="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                  </svg>
-                </div>
-              </div>
-              {errors.session && (
-                <div className="flex items-center gap-1 text-rose-400 text-xs">
-                  <span>⚠️</span>
-                  <span>{errors.session}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col space-y-2 col-span-2">
               <div className="flex items-center gap-1">
                 <Label className="text-xs font-semibold text-muted-foreground">Setup Name</Label>
                 <span className="text-rose-500 font-bold">*</span>
-                {errors.setup_name && <span className="text-rose-400 text-xs">⚠️</span>}
+                {errors.setup_name && <span className="text-rose-400 text-xs ml-auto">⚠️</span>}
               </div>
               <div className="flex gap-2 items-start">
                 <div className="flex-1">
@@ -1112,7 +734,7 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                     <select 
                       value={formData.setup_name || ''} 
                       onChange={(e) => setFormData({ ...formData, setup_name: e.target.value })}
-                      className={`w-full h-10 px-3 pr-10 text-sm bg-background/50 text-foreground rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors cursor-pointer ${
+                      className={`w-full h-11 px-4 pr-10 text-sm bg-background/50 text-foreground rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors cursor-pointer ${
                         errors.setup_name
                           ? 'border-2 border-rose-500'
                           : 'border border-border/50'
@@ -1137,18 +759,18 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                   variant="outline" 
                   onClick={() => setAddSetupOpen(true)} 
                   size="sm" 
-                  className="h-10 border-border/50 hover:bg-accent/20 flex-shrink-0"
+                  className="h-11 border-border/50 hover:bg-accent/20 flex-shrink-0"
                 >
                   ➕ Add
                 </Button>
               </div>
             </div>
 
+            {/* Setup Rating */}
             <div className="flex flex-col space-y-2">
               <div className="flex items-center gap-1">
                 <Label className="text-xs font-semibold text-muted-foreground">Setup Rating</Label>
-                <span className="text-rose-500 font-bold">*</span>
-                {errors.setup_rating && <span className="text-rose-400 text-xs">⚠️</span>}
+                <span className="text-muted-foreground text-xs">(Optional)</span>
               </div>
               <div className="flex gap-1 sm:gap-2">
                 {['B', 'B+', 'A-', 'A', 'A+'].map((rating) => (
@@ -1156,7 +778,7 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                     key={rating}
                     type="button"
                     onClick={() => setFormData({ ...formData, setup_rating: rating })}
-                    className={`flex-1 h-8 sm:h-10 rounded-lg font-semibold text-xs sm:text-sm transition-all ${
+                    className={`flex-1 h-10 rounded-lg font-semibold text-xs sm:text-sm transition-all ${
                       formData.setup_rating === rating
                         ? 'bg-accent/40 border border-accent/50 text-accent'
                         : 'bg-background/50 border border-border/50 text-muted-foreground hover:border-accent/30'
@@ -1166,28 +788,15 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                   </button>
                 ))}
               </div>
-              {errors.setup_rating && (
-                <div className="flex items-center gap-1 text-rose-400 text-xs">
-                  <span>⚠️</span>
-                  <span>{errors.setup_rating}</span>
-                </div>
-              )}
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
+            {/* Execution Type */}
             <div className="flex flex-col space-y-2">
               <div className="flex items-center gap-1">
                 <Label className="text-xs font-semibold text-muted-foreground">Execution Type</Label>
-                <span className="text-rose-500 font-bold">*</span>
-                {errors.execution_type && <span className="text-rose-400 text-xs">⚠️</span>}
               </div>
               <div className="relative">
-                <select className={`w-full h-11 px-4 pr-10 text-sm font-medium bg-background/50 text-foreground rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-all cursor-pointer ${
-                  errors.execution_type
-                    ? 'border-2 border-rose-500'
-                    : 'border border-border/50 hover:border-accent/40'
-                }`} value={formData.execution_type} onChange={(e) => setFormData({ ...formData, execution_type: e.target.value })}>
+                <select className={`w-full h-11 px-4 pr-10 text-sm font-medium bg-background/50 text-foreground rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-all cursor-pointer border border-border/50 hover:border-accent/40`} value={formData.execution_type} onChange={(e) => setFormData({ ...formData, execution_type: e.target.value })}>
                   <option value="Market">Market</option>
                   <option value="Limit">Limit</option>
                   <option value="Stop">Stop</option>
@@ -1198,156 +807,28 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                   </svg>
                 </div>
               </div>
-              {errors.execution_type && (
-                <div className="flex items-center gap-1 text-rose-400 text-xs">
+            </div>
                   <span>⚠️</span>
                   <span>{errors.execution_type}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col space-y-2">
-              <div className="flex items-center gap-1">
-                <Label className="text-xs font-semibold text-muted-foreground">Entry Price</Label>
-                <span className="text-rose-500 font-bold">*</span>
-                {errors.entry_price && <span className="text-rose-400 text-xs">⚠️</span>}
-              </div>
-              <Input 
-                type="number" 
-                step="0.01" 
-                value={formData.entry_price} 
-                onChange={(e) => setFormData({ ...formData, entry_price: e.target.value })} 
-                onWheel={preventNumberScroll}
-                placeholder="0.00"
-                className={`h-10 px-3 text-sm bg-background/50 text-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition-all ${
-                  errors.entry_price
-                    ? 'border-2 border-rose-500'
-                    : 'border border-blue-400/30'
-                }`}
-              />
-              {errors.entry_price && (
-                <div className="flex items-center gap-1 text-rose-400 text-xs">
-                  <span>⚠️</span>
-                  <span>{errors.entry_price}</span>
                 </div>
               )}
             </div>
           </div>
 
           {/* Section 3: P&L & Risk Management */}
-          <div className="bg-background/40 rounded-xl p-5 border border-border/30 space-y-4">
+          <div className="bg-gradient-to-br from-background/60 to-background/40 rounded-2xl p-6 border border-border/40 shadow-lg hover:shadow-xl transition-shadow space-y-5">
             <div className="flex items-center gap-2">
-              <div className="text-sm font-semibold text-accent">P&L & Risk</div>
-              <span className="text-rose-500 font-bold text-xs">* (SL/TP Price & Amount required)</span>
+              <span className="text-lg">💰</span>
+              <div className="text-sm font-bold text-accent uppercase tracking-wider">P&L & Risk Management</div>
             </div>
             
-            {/* Price-based P&L - Input SL/TP prices */}
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground mb-3">Enter SL/TP Prices</p>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col space-y-2">
-                  <div className="flex items-center gap-1">
-                    <Label className="text-xs font-semibold text-rose-400">Stop Loss Price</Label>
-                    <span className="text-rose-400 text-xs">⚠️</span>
-                  </div>
-                  <Input 
-                    className={`h-11 px-4 text-sm bg-background/50 text-rose-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-400/50 transition-all ${
-                      errors.stop_loss ? 'border-2 border-rose-500' : 'border border-rose-400/30'
-                    }`} 
-                    type="number" 
-                    step="0.01" 
-                    value={formData.stop_loss_price} 
-                    onChange={(e) => setFormData({ ...formData, stop_loss_price: e.target.value })} 
-                    onWheel={preventNumberScroll}
-                    disabled={formData.result === "MANUAL"} 
-                    placeholder="e.g., 4640"
-                  />
-                  {errors.stop_loss && (
-                    <div className="flex items-center gap-1 text-rose-400 text-xs mt-1">
-                      <span>⚠️</span>
-                      <span>{errors.stop_loss}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-col space-y-2">
-                  <div className="flex items-center gap-1">
-                    <Label className="text-xs font-semibold text-emerald-400">Target Price</Label>
-                    {errors.target && <span className="text-rose-400 text-xs">⚠️</span>}
-                  </div>
-                  <Input 
-                    className={`h-11 px-4 text-sm bg-background/50 text-emerald-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400/50 transition-all ${
-                      errors.target 
-                        ? 'border-2 border-rose-500' 
-                        : 'border border-emerald-400/30'
-                    }`} 
-                    type="number" 
-                    step="0.01" 
-                    value={formData.target_price} 
-                    onChange={(e) => setFormData({ ...formData, target_price: e.target.value })} 
-                    onWheel={preventNumberScroll}
-                    disabled={formData.result === "MANUAL"}
-                    placeholder="e.g., 4670"
-                  />
-                  {errors.target && (
-                    <div className="flex items-center gap-1 text-rose-400 text-xs mt-1">
-                      <span>⚠️</span>
-                      <span>{errors.target}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Auto-calculated Points */}
-            {(formData.entry_price && (formData.stop_loss_price || formData.target_price)) && (
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground mb-3 text-accent/70">Auto-Calculated Points</p>
-                <div className="grid grid-cols-2 gap-4">
-                  {formData.stop_loss_price && (
-                    <div className="flex flex-col space-y-2">
-                      <Label className="text-xs font-semibold text-rose-400">SL Points (auto)</Label>
-                      <div className="h-11 px-4 flex items-center rounded-lg bg-background/50 border border-rose-400/30 text-rose-400 text-sm font-medium">
-                        {Math.round(calculatePointsFromPrice(parseFloat(formData.entry_price || '0'), parseFloat(formData.stop_loss_price || '0'), formData.symbol)).toFixed(0)} pts
-                      </div>
-                    </div>
-                  )}
-                  {formData.target_price && (
-                    <div className="flex flex-col space-y-2">
-                      <Label className="text-xs font-semibold text-emerald-400">TP Points (auto)</Label>
-                      <div className="h-11 px-4 flex items-center rounded-lg bg-background/50 border border-emerald-400/30 text-emerald-400 text-sm font-medium">
-                        {Math.round(calculatePointsFromPrice(parseFloat(formData.entry_price || '0'), parseFloat(formData.target_price || '0'), formData.symbol)).toFixed(0)} pts
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* RR Ratio Display */}
-            {(formData.entry_price && formData.stop_loss_price && formData.target_price) && (
-              <div className="inline-flex items-center gap-3 bg-accent/10 rounded-md px-3 py-2 border border-accent/30">
-                <p className="text-[11px] font-semibold text-accent m-0 leading-none">RR</p>
-                <div className="flex items-center">
-                  <span className="text-sm font-bold text-accent leading-none">
-                    {(() => {
-                      const tpPips = Math.round(calculatePointsFromPrice(parseFloat(formData.entry_price), parseFloat(formData.target_price), formData.symbol));
-                      const slPips = Math.round(calculatePointsFromPrice(parseFloat(formData.entry_price), parseFloat(formData.stop_loss_price), formData.symbol));
-                      if (slPips === 0) return 'N/A';
-                      const rr = tpPips / slPips;
-                      return `1:${rr.toFixed(2)}`;
-                    })()}
-                  </span>
-                </div>
-              </div>
-            )}
-
             {/* Money Management - Risk/Reward in dollars */}
             <div>
-              <p className="text-xs font-semibold text-muted-foreground mb-3">Money Management (Risk/Reward)</p>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col space-y-2">
                   <div className="flex items-center gap-1">
-                    <Label className="text-xs font-semibold text-rose-400">Risk Amount ($$)</Label>
+                    <Label className="text-xs font-semibold text-rose-400">Risk Amount ($)</Label>
                     <span className="text-rose-400 text-xs">⚠️</span>
                   </div>
                   <Input 
@@ -1356,31 +837,16 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                     step="0.01" 
                     value={formData.risk_amount} 
                     onChange={(e) => {
-                      const riskAmount = e.target.value;
-                      setFormData({ ...formData, risk_amount: riskAmount });
-                      
-                      // Auto-calculate profit target based on TP pips
-                      if (riskAmount && formData.entry_price && formData.target_price) {
-                        const tpPips = Math.round(calculatePointsFromPrice(parseFloat(formData.entry_price), parseFloat(formData.target_price), formData.symbol));
-                        const slPips = Math.round(calculatePointsFromPrice(parseFloat(formData.entry_price), parseFloat(formData.stop_loss_price || '0'), formData.symbol));
-                        
-                        if (slPips > 0) {
-                          // Calculate pip value: how much $ per pip
-                          const riskPerPip = parseFloat(riskAmount) / slPips;
-                          // Profit target = risk per pip × TP pips
-                          const profitTarget = riskPerPip * tpPips;
-                          setFormData(prev => ({ ...prev, profit_target: profitTarget.toFixed(2) }));
-                        }
-                      }
+                      setFormData({ ...formData, risk_amount: e.target.value });
                     }} 
                     disabled={formData.result === "MANUAL"} 
-                    placeholder="Your risk in $"
+                    placeholder="Enter risk amount (e.g., 20, 30)"
                     onWheel={preventNumberScroll}
                   />
                 </div>
                 <div className="flex flex-col space-y-2">
                   <div className="flex items-center gap-1">
-                    <Label className="text-xs font-semibold text-emerald-400">Profit Target ($$)</Label>
+                    <Label className="text-xs font-semibold text-emerald-400">Profit Amount ($)</Label>
                     {errors.target && <span className="text-rose-400 text-xs">⚠️</span>}
                   </div>
                   <Input 
@@ -1395,8 +861,24 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                     onChange={(e) => setFormData({ ...formData, profit_target: e.target.value })} 
                     onWheel={preventNumberScroll}
                     disabled={formData.result === "MANUAL"}
-                    placeholder="Your profit target in $"
+                    placeholder="Enter profit amount (e.g., 20, 30)"
                   />
+                </div>
+              </div>
+              
+              {/* Auto-calculated RR Display */}
+              <div className="mt-4 p-3 rounded-lg bg-background/50 border border-accent/30">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-accent">Risk:Reward Ratio</span>
+                  {(() => {
+                    const risk = parseFloat(formData.risk_amount || '0');
+                    const profit = parseFloat(formData.profit_target || '0');
+                    if (risk > 0 && profit > 0) {
+                      const rr = (profit / risk).toFixed(2);
+                      return <span className="text-sm font-bold text-accent">1:{rr}</span>;
+                    }
+                    return <span className="text-sm text-muted-foreground">—</span>;
+                  })()}
                 </div>
               </div>
             </div>
@@ -1534,6 +1016,25 @@ export const AddJournalDialog = ({ open, onOpenChange, onSaved }: AddJournalDial
                 </datalist>
               </div>
             )}
+          </div>
+
+
+          {/* Section 4.5: Trade Date */}
+          <div className="bg-background/40 rounded-xl p-5 border border-border/30 space-y-4">
+            <div className="text-sm font-semibold text-accent mb-3"> Trade Date</div>
+            
+            <div className="flex flex-col space-y-2">
+              <Label className="text-xs font-semibold text-muted-foreground">Date of Trade</Label>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={formData.trade_date}
+                  onChange={(e) => setFormData({ ...formData, trade_date: e.target.value })}
+                  className="w-full h-11 px-4 text-sm bg-background/50 text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-all border border-border/50"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">This date will be used to organize trades in the calendar</p>
+            </div>
           </div>
 
 

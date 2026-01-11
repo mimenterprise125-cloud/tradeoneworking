@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/AuthProvider'
 import { useAdmin } from '@/lib/AdminContext'
 import supabase from '@/lib/supabase'
-import { calculatePointsFromPrice, calculateRRFromPrices, getPipSize } from '@/lib/rr-utils'
 import { motion } from 'framer-motion'
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { TrendingUp, TrendingDown, Target, AlertCircle, Zap, Lightbulb, CheckCircle2, AlertTriangle } from 'lucide-react'
@@ -173,26 +172,19 @@ const Performance = () => {
         }).filter((_, i) => r.length > 20 ? i % Math.ceil(r.length / 20) === 0 : true)
         if (mounted) setEquityData(eqData)
 
-        // 6. RR EFFICIENCY
+        // 6. RR EFFICIENCY (Money-based calculation)
         const rrList: any[] = []
         for (const row of r) {
           const symbol = (row.symbol || '').toString().toUpperCase()
-          const entryPrice = Number(row.entry_price || 0)
-          const tpPrice = Number(row.target_price || 0)
-          const slPrice = Number(row.stop_loss_price || 0)
           const riskAmount = Number(row.risk_amount || 0)
+          const profitAmount = Number(row.profit_target || 0)
           const realizedAmount = Number(row.realized_amount || 0)
-          const riskPoints = Number(row.stop_loss_points || 0)
-          const rewardPoints = Number(row.target_points || 0)
           
-          // Calculate Planned RR using prices (primary method)
+          // Calculate Planned RR using money amounts
           let targetRR = 0
-          if (entryPrice > 0 && tpPrice > 0 && slPrice > 0) {
-            // Use pip-aware calculation via prices (works for all asset types)
-            targetRR = calculateRRFromPrices(entryPrice, tpPrice, slPrice)
-          } else if (riskPoints > 0 && rewardPoints > 0) {
-            // Fallback to points if prices not available
-            targetRR = rewardPoints / riskPoints
+          if (riskAmount > 0 && profitAmount > 0) {
+            // Money-based RR calculation: profit / risk
+            targetRR = profitAmount / riskAmount
             targetRR = Math.min(Math.max(targetRR, 0), 50)
           }
           
@@ -202,9 +194,9 @@ const Performance = () => {
             // For manual exits, use amount-based calculation
             achievedRR = realizedAmount / riskAmount
             achievedRR = Math.min(Math.max(achievedRR, -10), 50)  // Allow negative RR, cap at ±50
-          } else if (row.result === 'TP' && (entryPrice > 0 && tpPrice > 0 && slPrice > 0)) {
-            // For TP hit: achieved equals planned (from prices)
-            achievedRR = calculateRRFromPrices(entryPrice, tpPrice, slPrice)
+          } else if (row.result === 'TP' && riskAmount > 0 && profitAmount > 0) {
+            // For TP hit: achieved equals planned (from money amounts)
+            achievedRR = profitAmount / riskAmount
           } else if (row.result === 'SL') {
             // For SL hit: achieved is -1 (lost the risk)
             achievedRR = -1
@@ -213,7 +205,7 @@ const Performance = () => {
             achievedRR = 0
           }
           
-          if (riskPoints > 0 || riskAmount > 0) {
+          if (riskAmount > 0) {
             rrList.push({ target: targetRR, achieved: achievedRR, name: `Trade ${rrList.length + 1}` })
           }
         }
@@ -262,20 +254,20 @@ const Performance = () => {
           return { symbol, strategies }
         })
 
-        // 8. SESSION ANALYSIS
+        // 8. SESSION ANALYSIS (Money-based RR)
         const bySession: Record<string, { wins:number, total:number, pnl:number, totalRR:number }> = {}
         for (const row of r) {
           const session = (row.session || '—').toString()
           const pnl = Number(row.realized_amount || 0)
-          const riskPoints = Number(row.stop_loss_points || 0)
-          const rewardPoints = Number(row.target_points || 0)
+          const riskAmount = Number(row.risk_amount || 0)
+          const profitAmount = Number(row.profit_target || 0)
           
-          // Calculate achieved RR using same logic as main metrics
+          // Calculate achieved RR using money-based logic
           let achievedRR = 0
-          if (row.result === 'MANUAL' && riskPoints > 0) {
-            achievedRR = pnl / riskPoints
-          } else if (row.result === 'TP' && riskPoints > 0) {
-            achievedRR = rewardPoints / riskPoints
+          if (row.result === 'MANUAL' && riskAmount > 0) {
+            achievedRR = pnl / riskAmount
+          } else if (row.result === 'TP' && riskAmount > 0 && profitAmount > 0) {
+            achievedRR = profitAmount / riskAmount
           } else if (row.result === 'SL') {
             achievedRR = -1
           }

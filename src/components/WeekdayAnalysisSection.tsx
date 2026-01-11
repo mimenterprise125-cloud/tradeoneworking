@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { calculateRRFromPrices } from '@/lib/rr-utils';
 import { SessionTradesModal } from '@/components/modals/SessionTradesModal';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Calendar } from 'lucide-react';
@@ -236,22 +235,15 @@ export const WeekdayAnalysisSection = ({
       const sessionName = t.session || 'No Session';
       const pnl = Number(t.realized_amount || 0);
       
-      // Calculate RR using pip-aware calculation (primary) or points (fallback)
+      // Calculate RR using money amounts
       let rr = 0;
-      const entryPrice = Number(t.entry_price || 0);
-      const tpPrice = Number(t.target_price || 0);
-      const slPrice = Number(t.stop_loss_price || 0);
       const riskAmount = Number(t.risk_amount || 0);
+      const profitAmount = Number(t.profit_target || 0);
       const realizedAmount = Number(t.realized_amount || 0);
-      const riskPoints = Number(t.stop_loss_points || 0);
-      const rewardPoints = Number(t.target_points || 0);
       
-      if (entryPrice > 0 && tpPrice > 0 && slPrice > 0) {
-        // Use pip-aware RR calculation (works for all asset types)
-        rr = calculateRRFromPrices(entryPrice, tpPrice, slPrice);
-      } else if (riskPoints > 0 && rewardPoints > 0) {
-        // Fallback to points-based calculation
-        rr = rewardPoints / riskPoints;
+      if (riskAmount > 0 && profitAmount > 0) {
+        // Money-based RR calculation: profit / risk
+        rr = profitAmount / riskAmount;
         rr = Math.min(Math.max(rr, 0), 50);
       }
       
@@ -595,26 +587,19 @@ export const WeekdayAnalysisSection = ({
                   setupRelatedTrades = setupRelatedTrades.filter((e: any) => e.session === calculatorSessionFilter);
                 }
                 
-                // Calculate average RR from the setup trades using the same method as combinedStats
+                // Calculate average RR from the setup trades using money-based calculation
                 let totalSetupRR = 0;
                 let setupTradeCount = 0;
                 
                 setupRelatedTrades.forEach((t: any) => {
-                  const entryPrice = Number(t.entry_price || 0);
-                  const tpPrice = Number(t.target_price || 0);
-                  const slPrice = Number(t.stop_loss_price || 0);
                   const riskAmount = Number(t.risk_amount || 0);
+                  const profitAmount = Number(t.profit_target || 0);
                   const realizedAmount = Number(t.realized_amount || 0);
-                  const riskPoints = Number(t.stop_loss_points || 0);
-                  const rewardPoints = Number(t.target_points || 0);
                   
                   let tradeRR = 0;
-                  if (entryPrice > 0 && tpPrice > 0 && slPrice > 0) {
-                    // Use pip-aware RR calculation
-                    tradeRR = calculateRRFromPrices(entryPrice, tpPrice, slPrice);
-                  } else if (riskPoints > 0 && rewardPoints > 0) {
-                    // Fallback to points-based calculation
-                    tradeRR = rewardPoints / riskPoints;
+                  if (riskAmount > 0 && profitAmount > 0) {
+                    // Money-based RR calculation: profit / risk
+                    tradeRR = profitAmount / riskAmount;
                     tradeRR = Math.min(Math.max(tradeRR, 0), 50);
                   }
                   

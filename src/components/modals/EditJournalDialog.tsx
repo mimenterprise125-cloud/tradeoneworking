@@ -55,6 +55,7 @@ export const EditJournalDialog = ({ open, onOpenChange, entry }: EditJournalDial
         manualAmount: entry.manualAmount ?? 0,
         duration_minutes: entry.duration_minutes ?? 0,
         notes: entry.notes ?? '',
+        trade_date: entry.trade_date ?? new Date().toISOString().split('T')[0],
       })
     }
   }, [entry]);
@@ -135,6 +136,7 @@ export const EditJournalDialog = ({ open, onOpenChange, entry }: EditJournalDial
           win: form.result === 'MANUAL' ? (form.manualOutcome === 'Profit') : (form.result === 'TP'),
           duration_minutes: Number(form.duration_minutes) || null,
           notes: form.notes || null,
+          trade_date: form.trade_date || new Date().toISOString().split('T')[0],
           updated_at: new Date().toISOString(),
         }
 
@@ -445,6 +447,17 @@ export const EditJournalDialog = ({ open, onOpenChange, entry }: EditJournalDial
                 value={form.duration_minutes || 0}
                 onChange={(e) => setForm((s: any) => ({ ...s, duration_minutes: e.target.value }))}
                 onWheel={preventNumberScroll}
+              />
+            </div>
+
+            {/* Trade Date */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Trade Date</Label>
+              <input
+                type="date"
+                value={form.trade_date || ''}
+                onChange={(e) => setForm((s: any) => ({ ...s, trade_date: e.target.value }))}
+                className="w-full px-3 py-2 text-sm bg-background/50 text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-accent border border-border/50"
               />
             </div>
 
